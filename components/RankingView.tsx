@@ -1,5 +1,5 @@
 import React from 'react';
-import { Album } from '../types';
+import { Album } from '../types'; // Still use Album for card props
 import { AlbumCard } from './AlbumCard';
 import { Trophy, Disc } from 'lucide-react';
 
@@ -8,8 +8,6 @@ interface RankingViewProps {
   pool: Album[];
   category: 'French' | 'International';
   onUpdateRanked: (items: Album[]) => void;
-  onUpdatePool: (items: Album[]) => void;
-  onListsUpdate: (ranked: Album[], pool: Album[]) => void;
 }
 
 export const RankingView: React.FC<RankingViewProps> = ({
@@ -17,11 +15,9 @@ export const RankingView: React.FC<RankingViewProps> = ({
   pool,
   category,
   onUpdateRanked,
-  onUpdatePool,
-  onListsUpdate,
 }) => {
   const handleDragStart = (e: React.DragEvent, id: string, source: 'pool' | 'ranked') => {
-    e.dataTransfer.setData('id', id);
+    e.dataTransfer.setData('albumId', id);
     e.dataTransfer.setData('source', source);
   };
 
@@ -29,100 +25,64 @@ export const RankingView: React.FC<RankingViewProps> = ({
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent, target: 'pool' | 'ranked') => {
+  // Handles dropping an item into a droppable area (Ranked or Pool)
+  const handleDrop = (e: React.DragEvent, targetList: 'ranked' | 'pool') => {
     e.preventDefault();
-    const id = e.dataTransfer.getData('id');
-    const source = e.dataTransfer.getData('source') as 'pool' | 'ranked';
+    const albumId = e.dataTransfer.getData('albumId');
+    const sourceList = e.dataTransfer.getData('source') as 'pool' | 'ranked';
 
-    if (source === target) return; // Reordering handled elsewhere/ignored for pool
+    if (!albumId || sourceList === targetList) return;
 
-    let item: Album | undefined;
-    let newRanked = [...ranked];
-    let newPool = [...pool];
-
-    // Remove from source
-    if (source === 'ranked') {
-      const idx = newRanked.findIndex(a => a.id === id);
-      if (idx !== -1) {
-        item = newRanked[idx];
-        newRanked.splice(idx, 1);
-      }
-    } else {
-      const idx = newPool.findIndex(a => a.id === id);
-      if (idx !== -1) {
-        item = newPool[idx];
-        newPool.splice(idx, 1);
-      }
-    }
-
-    // Add to target
-    if (item) {
-      if (target === 'ranked') {
-        newRanked.push(item);
-      } else {
-        newPool.unshift(item); // Add to top of pool
-      }
-      
-      // Atomic Update
-      onListsUpdate(newRanked, newPool);
+    if (sourceList === 'pool' && targetList === 'ranked') {
+        const albumToMove = pool.find(a => a.id === albumId);
+        if (albumToMove) {
+            onUpdateRanked([...ranked, albumToMove]);
+        }
+    } else if (sourceList === 'ranked' && targetList === 'pool') {
+        const newRanked = ranked.filter(a => a.id !== albumId);
+        onUpdateRanked(newRanked);
     }
   };
-
+  
+  // Handles reordering within the ranked list specifically
   const handleReorderRanked = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
-    e.stopPropagation(); // Stop bubbling to the container drop
-    const id = e.dataTransfer.getData('id');
-    const source = e.dataTransfer.getData('source');
+    e.stopPropagation();
+    const albumId = e.dataTransfer.getData('albumId');
+    const sourceList = e.dataTransfer.getData('source');
 
-    if (source !== 'ranked') {
-        // Handle drop from pool into specific rank position
-        const itemIndexPool = pool.findIndex(p => p.id === id);
-        if (itemIndexPool === -1) return;
-        
-        const item = pool[itemIndexPool];
-        const newPool = pool.filter(p => p.id !== id);
-        
-        const newRanked = [...ranked];
-        newRanked.splice(targetIndex, 0, item);
-        
-        onListsUpdate(newRanked, newPool);
-        return;
+    let album: Album;
+    let newRankedList = [...ranked];
+
+    if (sourceList === 'ranked') {
+      const currentIndex = ranked.findIndex(a => a.id === albumId);
+      if (currentIndex === -1 || currentIndex === targetIndex) return;
+
+      // Simple reorder
+      [album] = newRankedList.splice(currentIndex, 1);
+      newRankedList.splice(targetIndex, 0, album);
+
+    } else { // Source is 'pool'
+      const albumFromPool = pool.find(a => a.id === albumId);
+      if (!albumFromPool) return;
+      album = albumFromPool;
+
+      // Insert into specific position
+      newRankedList.splice(targetIndex, 0, album);
     }
-
-    // Reorder within ranked
-    const currentIndex = ranked.findIndex(r => r.id === id);
-    if (currentIndex === -1 || currentIndex === targetIndex) return;
-
-    const newRanked = [...ranked];
-    const [movedItem] = newRanked.splice(currentIndex, 1);
-    newRanked.splice(targetIndex, 0, movedItem);
-    onUpdateRanked(newRanked);
+    
+    onUpdateRanked(newRankedList);
   };
 
-  // Helper moves
-  const promote = (id: string) => {
-    const item = pool.find(i => i.id === id);
-    if (!item) return;
-    
-    const newPool = pool.filter(i => i.id !== id);
-    const newRanked = [...ranked, item];
-    
-    onListsUpdate(newRanked, newPool);
+  const promote = (albumId: string) => {
+    const albumToMove = pool.find(a => a.id === albumId);
+    if (albumToMove) {
+        onUpdateRanked([...ranked, albumToMove]);
+    }
   };
 
-  const demote = (id: string) => {
-    const item = ranked.find(i => i.id === id);
-    if (!item) return;
-    
-    const newRanked = ranked.filter(i => i.id !== id);
-    const newPool = [item, ...pool];
-    
-    onListsUpdate(newRanked, newPool);
-  };
-
-  const remove = (id: string, from: 'pool' | 'ranked') => {
-     if(from === 'pool') onUpdatePool(pool.filter(i => i.id !== id));
-     else onUpdateRanked(ranked.filter(i => i.id !== id));
+  const demote = (albumId: string) => {
+    onUpdateRanked(ranked.filter(a => a.id !== albumId));
   };
 
   const moveRank = (id: string, direction: 'up' | 'down') => {
@@ -145,7 +105,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, 'ranked')}
       >
-        <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/80 backdrop-blur-sm sticky top-0 z-10">
+         <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-green-500/10 rounded-xl text-green-400">
                <Trophy size={24} />
@@ -156,7 +116,6 @@ export const RankingView: React.FC<RankingViewProps> = ({
              </div>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
           {ranked.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-2xl">
@@ -166,19 +125,26 @@ export const RankingView: React.FC<RankingViewProps> = ({
           ) : (
             ranked.map((album, idx) => (
               <div 
-                key={album.id}
-                onDragOver={(e) => { e.preventDefault(); /* Allow drop */ }}
-                onDrop={(e) => handleReorderRanked(e, idx)}
+                key={album.id} 
+                className="relative"
+                onDragOver={(e) => {
+                  e.preventDefault(); 
+                  e.currentTarget.classList.add('bg-zinc-700/50'); // Visual feedback
+                }}
+                onDragLeave={(e) => e.currentTarget.classList.remove('bg-zinc-700/50')}
+                onDrop={(e) => {
+                  e.currentTarget.classList.remove('bg-zinc-700/50');
+                  handleReorderRanked(e, idx)
+                }}
               >
                 <AlbumCard
                   album={album}
                   index={idx}
                   rank={idx + 1}
                   isRanked={true}
-                  onRemove={(id) => remove(id, 'ranked')}
                   onDemote={demote}
                   onMove={moveRank}
-                  onDragStart={handleDragStart}
+                  onDragStart={(e, id) => handleDragStart(e, id, 'ranked')}
                 />
               </div>
             ))
@@ -199,15 +165,14 @@ export const RankingView: React.FC<RankingViewProps> = ({
              </div>
              <div>
                 <h2 className="text-xl font-bold text-white">Collection</h2>
-                <p className="text-xs text-zinc-500">Unranked albums</p>
+                <p className="text-xs text-zinc-500">Unranked albums from the group pool</p>
              </div>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
            {pool.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600">
-                <p>Search and add albums to your pool</p>
+                <p>Search and add albums to the group pool</p>
              </div>
           ) : (
             pool.map((album, idx) => (
@@ -216,9 +181,8 @@ export const RankingView: React.FC<RankingViewProps> = ({
                 album={album}
                 index={idx}
                 isRanked={false}
-                onRemove={(id) => remove(id, 'pool')}
                 onPromote={promote}
-                onDragStart={handleDragStart}
+                onDragStart={(e, id) => handleDragStart(e, id, 'pool')}
               />
             ))
           )}

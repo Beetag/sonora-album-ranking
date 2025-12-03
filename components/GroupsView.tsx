@@ -6,7 +6,7 @@ import { Plus, Users, Hash, Copy, LogIn, Loader2, X, Check, TestTube } from 'luc
 
 interface GroupsViewProps {
   user: User | null;
-  onSelectGroup: (groupId: string) => void;
+  onSelectGroup: (group: Group) => void;
 }
 
 // Mock Data for Testing without Auth
@@ -14,18 +14,20 @@ const MOCK_GROUPS: Group[] = [
   { 
     id: 'mock-1', 
     name: 'Frontend Test Group', 
-    code: 'TEST01', 
-    ownerId: 'mock-user', 
+    createdBy: 'mock-user', 
     members: ['mock-user', 'other-user'], 
-    createdAt: new Date() 
+    createdAt: new Date(),
+    memberInfo: {},
+    code: 'TEST01'
   },
   { 
     id: 'mock-2', 
     name: 'Sonora Dev Team', 
-    code: 'DEV999', 
-    ownerId: 'other-user', 
+    createdBy: 'other-user', 
     members: ['mock-user'], 
-    createdAt: new Date() 
+    createdAt: new Date(),
+    memberInfo: {},
+    code: 'DEV999'
   }
 ];
 
@@ -69,32 +71,13 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGroupName.trim()) return;
+    if (!newGroupName.trim() || !user) return;
     
     setActionLoading(true);
     setError(null);
-    
-    if (!user) {
-        // Mock Implementation
-        setTimeout(() => {
-             const newGroup: Group = {
-                id: `mock-${Date.now()}`,
-                name: newGroupName,
-                code: 'MOCK' + Math.floor(Math.random() * 100),
-                ownerId: 'guest',
-                members: ['guest'],
-                createdAt: new Date()
-            };
-            setGroups(prev => [...prev, newGroup]);
-            setNewGroupName('');
-            setShowCreateModal(false);
-            setActionLoading(false);
-        }, 800);
-        return;
-    }
 
     try {
-      await createGroup(newGroupName.trim(), user.uid);
+      await createGroup(newGroupName.trim(), user);
       await fetchGroups();
       setNewGroupName('');
       setShowCreateModal(false);
@@ -108,36 +91,13 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCode.trim()) return;
+    if (!joinCode.trim() || !user) return;
 
     setActionLoading(true);
     setError(null);
 
-    if (!user) {
-        // Mock Implementation
-        setTimeout(() => {
-            if (joinCode === 'ERROR') {
-                setError("Mock Error: Invalid Code");
-            } else {
-                const newGroup: Group = {
-                    id: `mock-joined-${Date.now()}`,
-                    name: `Joined Group (${joinCode})`,
-                    code: joinCode,
-                    ownerId: 'someone-else',
-                    members: ['guest', 'owner'],
-                    createdAt: new Date()
-                };
-                setGroups(prev => [...prev, newGroup]);
-                setJoinCode('');
-                setShowJoinModal(false);
-            }
-            setActionLoading(false);
-        }, 800);
-        return;
-    }
-
     try {
-      await joinGroupByCode(joinCode.trim(), user.uid);
+      await joinGroupByCode(joinCode.trim(), user);
       await fetchGroups();
       setJoinCode('');
       setShowJoinModal(false);
@@ -217,15 +177,17 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 <div className="p-2.5 bg-zinc-800 rounded-xl text-white font-bold text-lg">
                   {group.name.substring(0, 2).toUpperCase()}
                 </div>
-                <div 
-                  className="flex items-center gap-2 px-2 py-1 bg-zinc-800/50 rounded-lg border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors"
-                  onClick={() => copyToClipboard(group.code)}
-                  title="Copy Join Code"
-                >
-                  <Hash size={14} className="text-zinc-500" />
-                  <span className="text-sm font-mono text-zinc-300">{group.code}</span>
-                  {copiedCode === group.code ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-zinc-500" />}
-                </div>
+                {group.code && (
+                  <div 
+                    className="flex items-center gap-2 px-2 py-1 bg-zinc-800/50 rounded-lg border border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors"
+                    onClick={() => copyToClipboard(group.code!)}
+                    title="Copy Join Code"
+                  >
+                    <Hash size={14} className="text-zinc-500" />
+                    <span className="text-sm font-mono text-zinc-300">{group.code}</span>
+                    {copiedCode === group.code ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-zinc-500" />}
+                  </div>
+                )}
               </div>
               
               <h3 className="text-xl font-bold text-white mb-2 truncate">{group.name}</h3>
@@ -236,7 +198,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
               </div>
 
               <button 
-                onClick={() => onSelectGroup(group.id)}
+                onClick={() => onSelectGroup(group)}
                 className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors"
               >
                 Open Group

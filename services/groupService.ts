@@ -1,224 +1,154 @@
-import { db } from "./firebase";
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc,
-  getDocs, 
-  updateDoc, 
-  arrayUnion, 
-  arrayRemove,
-  query, 
-  where, 
-  serverTimestamp,
-  Timestamp 
-} from "firebase/firestore";
-import { Album, Group, AlbumLanguage } from "../types";
+import { db } from './firebase';
+import {
+  collection, getDocs, query, where, doc, setDoc, getDoc, addDoc, onSnapshot, writeBatch, collectionGroup
+} from 'firebase/firestore';
+import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
+import { User } from 'firebase/auth';
 
-const GROUPS_COLLECTION = "groups";
+const GROUPS_COLLECTION = 'groups';
 
-// --- 1. GROUP MANAGEMENT ---
+// --- Functions for managing group membership and details ---
 
-/**
- * Generates a unique 6-character alphanumeric code
- */
-const generateGroupCode = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+export const getUserGroups = async (userId: string): Promise<Group[]> => {
+  const groupsRef = collection(db, GROUPS_COLLECTION);
+  const q = query(groupsRef, where('members', 'array-contains', userId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+};
+
+const createInitialRankingDoc = (user: User, groupId: string) => ({
+  fr: [],
+  inter: [],
+  updatedAt: new Date(),
+  userInfo: {
+    username: user.displayName || 'Anonymous',
+    avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`,
+    groupId: groupId
   }
-  return result;
-};
+});
 
-/**
- * Creates a new group and adds the creator as the first member
- */
-export const createGroup = async (name: string, ownerId: string): Promise<string> => {
-  // Generate a code (in a real app, we should check for collisions in DB)
-  const code = generateGroupCode();
-  
+export const createGroup = async (groupName: string, user: User): Promise<Group> => {
+  if (!groupName.trim()) throw new Error("Group name cannot be empty.");
+
+  const batch = writeBatch(db);
   const newGroupRef = doc(collection(db, GROUPS_COLLECTION));
-  
-  const groupData: Group = {
-    id: newGroupRef.id,
-    name,
-    code,
-    ownerId,
-    members: [ownerId],
-    createdAt: serverTimestamp()
-  };
 
-  await setDoc(newGroupRef, groupData);
-  
-  // Initialize empty pools
-  await setDoc(doc(db, GROUPS_COLLECTION, newGroupRef.id, 'pools', 'French'), { albums: [] });
-  await setDoc(doc(db, GROUPS_COLLECTION, newGroupRef.id, 'pools', 'International'), { albums: [] });
+  batch.set(newGroupRef, {
+    name: groupName,
+    createdBy: user.uid,
+    createdAt: new Date(),
+    members: [user.uid],
+    code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+  });
 
-  return newGroupRef.id;
+  const rankingDocRef = doc(db, GROUPS_COLLECTION, newGroupRef.id, 'rankings', user.uid);
+  batch.set(rankingDocRef, createInitialRankingDoc(user, newGroupRef.id));
+
+  await batch.commit();
+
+  const docSnap = await getDoc(newGroupRef);
+  return { id: docSnap.id, ...docSnap.data() } as Group;
 };
 
-/**
- * Joins a group using its unique code
- */
-export const joinGroupByCode = async (code: string, userId: string): Promise<string | null> => {
-  const q = query(collection(db, GROUPS_COLLECTION), where("code", "==", code.toUpperCase()));
+export const joinGroupByCode = async (code: string, user: User): Promise<void> => {
+  if (!code || code.length !== 6) throw new Error("Invalid code format.");
+
+  const groupsRef = collection(db, GROUPS_COLLECTION);
+  const q = query(groupsRef, where("code", "==", code));
   const querySnapshot = await getDocs(q);
 
-  if (querySnapshot.empty) {
-    throw new Error("Group not found with this code.");
-  }
+  if (querySnapshot.empty) throw new Error("Group not found.");
 
   const groupDoc = querySnapshot.docs[0];
   const groupData = groupDoc.data() as Group;
 
-  if (groupData.members.includes(userId)) {
-    return groupDoc.id; // Already a member
+  if (groupData.members.includes(user.uid)) return;
+
+  const batch = writeBatch(db);
+  batch.update(groupDoc.ref, { members: [...groupData.members, user.uid] });
+
+  const rankingDocRef = doc(db, GROUPS_COLLECTION, groupDoc.id, 'rankings', user.uid);
+  batch.set(rankingDocRef, createInitialRankingDoc(user, groupDoc.id));
+
+  await batch.commit();
+};
+
+// --- Functions for Group Album Pools ---
+
+const getPoolCollectionName = (subcollection: AlbumSubcollection) => `${subcollection}_pool`;
+
+export const getGroupPool = async (groupId: string, subcollection: AlbumSubcollection): Promise<PoolAlbum[]> => {
+  const poolColName = getPoolCollectionName(subcollection);
+  const poolRef = collection(db, GROUPS_COLLECTION, groupId, poolColName);
+  const querySnapshot = await getDocs(poolRef);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PoolAlbum));
+};
+
+export const addAlbumToPool = async (groupId: string, subcollection: AlbumSubcollection, album: Omit<PoolAlbum, 'id' | 'addedAt' | 'addedBy'>, userId: string): Promise<string> => {
+  const poolColName = getPoolCollectionName(subcollection);
+  const poolRef = collection(db, GROUPS_COLLECTION, groupId, poolColName);
+  const albumDocRef = doc(poolRef, album.spotifyId);
+
+  const docSnap = await getDoc(albumDocRef);
+  if (docSnap.exists()) {
+    throw new Error('Album already exists in this pool.');
   }
 
-  await updateDoc(groupDoc.ref, {
-    members: arrayUnion(userId)
+  await setDoc(albumDocRef, { ...album, addedBy: userId, addedAt: new Date() });
+  return album.spotifyId;
+};
+
+// --- Functions for Group-Specific User Rankings ---
+
+export const subscribeToGroupUserRanking = (groupId: string, userId: string, callback: (data: GroupRanking | null) => void) => {
+  const rankingDocRef = doc(db, GROUPS_COLLECTION, groupId, 'rankings', userId);
+  return onSnapshot(rankingDocRef, (doc) => {
+    callback(doc.exists() ? doc.data() as GroupRanking : null);
+  });
+};
+
+// THIS IS THE CORRECTED FUNCTION
+export const updateUserGroupRanking = async (groupId: string, user: User, rankingData: Partial<GroupRanking>): Promise<void> => {
+  const rankingDocRef = doc(db, GROUPS_COLLECTION, groupId, 'rankings', user.uid);
+  
+  // This object ensures the critical userInfo field is ALWAYS present on save.
+  const dataToMerge = {
+    ...rankingData,
+    updatedAt: new Date(),
+    userInfo: {
+        username: user.displayName || 'Anonymous',
+        avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`,
+        groupId: groupId
+    }
+  };
+
+  await setDoc(rankingDocRef, dataToMerge, { merge: true });
+};
+
+// --- Function for Community View ---
+
+export const getCommunityRankings = async (groupIds: string[]): Promise<CommunityUserRanking[]> => {
+  if (groupIds.length === 0) return [];
+
+  const rankingsQuery = query(collectionGroup(db, 'rankings'), where('userInfo.groupId', 'in', groupIds));
+  const querySnapshot = await getDocs(rankingsQuery);
+  
+  const results: CommunityUserRanking[] = [];
+  querySnapshot.forEach(doc => {
+    const data = doc.data() as GroupRanking & { userInfo: { username: string, avatarUrl: string } };
+    if(data.userInfo){
+        results.push({
+            id: doc.id,
+            username: data.userInfo.username,
+            avatarUrl: data.userInfo.avatarUrl,
+            rankings: {
+                fr: data.fr || [],
+                inter: data.inter || [],
+                updatedAt: data.updatedAt
+            }
+        });
+    }
   });
 
-  return groupDoc.id;
-};
-
-/**
- * Leaves a group
- */
-export const leaveGroup = async (groupId: string, userId: string) => {
-  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
-  await updateDoc(groupRef, {
-    members: arrayRemove(userId)
-  });
-};
-
-/**
- * Checks if user is a member of the group
- */
-export const isGroupMember = async (groupId: string, userId: string): Promise<boolean> => {
-  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
-  const snapshot = await getDoc(groupRef);
-  if (!snapshot.exists()) return false;
-  
-  const data = snapshot.data() as Group;
-  return data.members.includes(userId);
-};
-
-/**
- * Returns all groups the user belongs to
- */
-export const getUserGroups = async (userId: string): Promise<Group[]> => {
-  const q = query(
-    collection(db, GROUPS_COLLECTION), 
-    where("members", "array-contains", userId)
-  );
-  
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => d.data() as Group);
-};
-
-
-// --- 2. GROUP POOLS ---
-
-/**
- * Adds an album to the group's shared pool. Prevents duplicates by ID.
- */
-export const addAlbumToGroupPool = async (
-  groupId: string, 
-  category: AlbumLanguage, 
-  album: Album
-) => {
-  const poolRef = doc(db, GROUPS_COLLECTION, groupId, 'pools', category);
-  const snapshot = await getDoc(poolRef);
-
-  if (snapshot.exists()) {
-    const data = snapshot.data();
-    const currentAlbums: Album[] = data.albums || [];
-    
-    // Check for duplicate by ID
-    const exists = currentAlbums.some(a => a.id === album.id);
-    if (exists) return; // Do nothing if already exists
-
-    await updateDoc(poolRef, {
-      albums: arrayUnion(album)
-    });
-  } else {
-    // Should not happen if created correctly, but fallback
-    await setDoc(poolRef, {
-      albums: [album]
-    });
-  }
-};
-
-/**
- * Fetches the shared pool for a specific category
- */
-export const getGroupPool = async (
-  groupId: string, 
-  category: AlbumLanguage
-): Promise<Album[]> => {
-  const poolRef = doc(db, GROUPS_COLLECTION, groupId, 'pools', category);
-  const snapshot = await getDoc(poolRef);
-  
-  if (snapshot.exists()) {
-    return snapshot.data().albums as Album[];
-  }
-  return [];
-};
-
-
-// --- 3. GROUP RANKINGS ---
-
-/**
- * Updates the user's personal ranking within the group
- */
-export const updateGroupRanking = async (
-  groupId: string, 
-  userId: string,
-  category: AlbumLanguage,
-  rankedAlbums: Album[]
-) => {
-  const rankingRef = doc(db, GROUPS_COLLECTION, groupId, 'rankings', userId);
-  
-  // We use setDoc with merge to allow updating one category without wiping the other
-  await setDoc(rankingRef, {
-    [category.toLowerCase()]: rankedAlbums,
-    userId,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-};
-
-/**
- * Gets a specific user's ranking in a group
- */
-export const getGroupRanking = async (
-  groupId: string, 
-  userId: string
-): Promise<{ french: Album[], international: Album[] }> => {
-  const rankingRef = doc(db, GROUPS_COLLECTION, groupId, 'rankings', userId);
-  const snapshot = await getDoc(rankingRef);
-
-  if (snapshot.exists()) {
-    const data = snapshot.data();
-    return {
-      french: data.french || [],
-      international: data.international || []
-    };
-  }
-  
-  return { french: [], international: [] };
-};
-
-/**
- * Gets all rankings for all members in a group (for the community view within the group)
- */
-export const getAllGroupRankings = async (groupId: string): Promise<any[]> => {
-  const rankingsRef = collection(db, GROUPS_COLLECTION, groupId, 'rankings');
-  const snapshot = await getDocs(rankingsRef);
-  
-  return snapshot.docs.map(doc => ({
-    userId: doc.id,
-    ...doc.data()
-  }));
+  return results;
 };

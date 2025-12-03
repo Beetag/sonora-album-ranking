@@ -1,14 +1,55 @@
-export type AlbumLanguage = 'French' | 'International';
+export type AlbumSubcollection = 'fr' | 'inter';
 
 export interface Album {
   id: string;
   title: string;
   artist: string;
   year: number;
-  language: AlbumLanguage;
+  language: 'French' | 'International';
   coverUrl: string;
 }
 
+// New type for an album in a group's pool subcollection
+export interface PoolAlbum {
+  id: string; // Spotify ID or other unique ID, used as doc ID
+  title: string;
+  artist: string;
+  year: number;
+  coverUrl: string;
+  addedBy: string; // User ID
+  addedAt: any; // Firestore Timestamp
+  spotifyId: string;
+}
+
+export interface Group {
+  id:string;
+  name: string;
+  code: string;
+  createdBy: string;
+  members: string[]; // Array of user IDs
+  createdAt: any; // Firestore Timestamp
+}
+
+export interface RankedAlbum {
+  albumId: string;
+  rank: number;
+  // Also include display data for the album to avoid extra lookups
+  title: string;
+  artist: string;
+  year: number;
+  coverUrl: string;
+}
+
+export interface GroupRanking {
+  fr: RankedAlbum[];
+  inter: RankedAlbum[];
+  updatedAt: any; // Firestore Timestamp
+}
+
+/*
+  DEPRECATED TYPES from old data structure.
+*/
+/*
 export interface UserRanking {
   year: number;
   french: {
@@ -21,14 +62,16 @@ export interface UserRanking {
   };
 }
 
+export interface GroupPool {
+  albums: Album[];
+}
+*/
+
 export interface CommunityUserRanking {
   id: string;
   username: string;
   avatarUrl: string;
-  rankings: {
-    french: Album[];
-    international: Album[];
-  };
+  rankings: GroupRanking; // Updated to use the new GroupRanking type
 }
 
 export interface GlobalRankingData {
@@ -36,17 +79,4 @@ export interface GlobalRankingData {
   averageRank: number;
   score: number;
   voters: number;
-}
-
-export interface Group {
-  id: string;
-  name: string;
-  code: string;
-  ownerId: string;
-  members: string[]; // Array of user IDs
-  createdAt: any; // Firestore Timestamp
-}
-
-export interface GroupPool {
-  albums: Album[];
 }
