@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import {
-  collection, getDocs, query, where, doc, setDoc, getDoc, addDoc, onSnapshot, writeBatch, collectionGroup
+  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, writeBatch, collectionGroup
 } from 'firebase/firestore';
 import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
 import { User } from 'firebase/auth';
@@ -36,7 +36,7 @@ export const createGroup = async (groupName: string, user: User): Promise<Group>
   batch.set(newGroupRef, {
     name: groupName,
     createdBy: user.uid,
-    createdAt: new Date(),
+    createdAt: new date(),
     members: [user.uid],
     code: Math.random().toString(36).substring(2, 8).toUpperCase(),
   });
@@ -85,18 +85,19 @@ export const getGroupPool = async (groupId: string, subcollection: AlbumSubcolle
 };
 
 export const addAlbumToPool = async (groupId: string, subcollection: AlbumSubcollection, album: Omit<PoolAlbum, 'id' | 'addedAt' | 'addedBy'>, userId: string): Promise<string> => {
-  const poolColName = getPoolCollectionName(subcollection);
-  const poolRef = collection(db, GROUPS_COLLECTION, groupId, poolColName);
-  const albumDocRef = doc(poolRef, album.spotifyId);
+    const poolColName = getPoolCollectionName(subcollection);
+    const poolRef = collection(db, GROUPS_COLLECTION, groupId, poolColName);
+    const albumDocRef = doc(poolRef, album.spotifyId);
 
-  const docSnap = await getDoc(albumDocRef);
-  if (docSnap.exists()) {
-    throw new Error('Album already exists in this pool.');
-  }
+    const docSnap = await getDoc(albumDocRef);
+    if (docSnap.exists()) {
+      throw new Error('Album already exists in this pool.');
+    }
 
-  await setDoc(albumDocRef, { ...album, addedBy: userId, addedAt: new Date() });
-  return album.spotifyId;
+    await setDoc(albumDocRef, { ...album, addedBy: userId, addedAt: new Date() });
+    return album.spotifyId;
 };
+
 
 // --- Functions for Group-Specific User Rankings ---
 
@@ -107,11 +108,9 @@ export const subscribeToGroupUserRanking = (groupId: string, userId: string, cal
   });
 };
 
-// THIS IS THE CORRECTED FUNCTION
 export const updateUserGroupRanking = async (groupId: string, user: User, rankingData: Partial<GroupRanking>): Promise<void> => {
   const rankingDocRef = doc(db, GROUPS_COLLECTION, groupId, 'rankings', user.uid);
   
-  // This object ensures the critical userInfo field is ALWAYS present on save.
   const dataToMerge = {
     ...rankingData,
     updatedAt: new Date(),

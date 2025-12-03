@@ -16,61 +16,60 @@ export const RankingView: React.FC<RankingViewProps> = ({
   category,
   onUpdateRanked,
 }) => {
-  const handleDragStart = (e: React.DragEvent, id: string, source: 'pool' | 'ranked') => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('albumId', id);
-    e.dataTransfer.setData('source', source);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
-  // Handles dropping an item into a droppable area (Ranked or Pool)
+  const findAlbumAndSource = (id: string): {album: Album | undefined, source: 'pool' | 'ranked' | null} => {
+    let album = ranked.find(a => a.id === id);
+    if (album) return { album, source: 'ranked' };
+    album = pool.find(a => a.id === id);
+    if (album) return { album, source: 'pool' };
+    return { album: undefined, source: null };
+  }
+
   const handleDrop = (e: React.DragEvent, targetList: 'ranked' | 'pool') => {
     e.preventDefault();
     const albumId = e.dataTransfer.getData('albumId');
-    const sourceList = e.dataTransfer.getData('source') as 'pool' | 'ranked';
+    const { album, source } = findAlbumAndSource(albumId);
+    if (!album || source === targetList) return;
 
-    if (!albumId || sourceList === targetList) return;
-
-    if (sourceList === 'pool' && targetList === 'ranked') {
-        const albumToMove = pool.find(a => a.id === albumId);
-        if (albumToMove) {
-            onUpdateRanked([...ranked, albumToMove]);
-        }
-    } else if (sourceList === 'ranked' && targetList === 'pool') {
-        const newRanked = ranked.filter(a => a.id !== albumId);
-        onUpdateRanked(newRanked);
+    let newRanked = [...ranked];
+    if (targetList === 'ranked') {
+      newRanked = [...newRanked, album];
+    } else { // target is pool
+      newRanked = newRanked.filter(a => a.id !== albumId);
     }
+    onUpdateRanked(newRanked);
   };
   
-  // Handles reordering within the ranked list specifically
   const handleReorderRanked = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
     const albumId = e.dataTransfer.getData('albumId');
-    const sourceList = e.dataTransfer.getData('source');
+    const { album, source } = findAlbumAndSource(albumId);
 
-    let album: Album;
+    if (!album) return;
+
     let newRankedList = [...ranked];
+    const existingIndex = newRankedList.findIndex(a => a.id === albumId);
 
-    if (sourceList === 'ranked') {
-      const currentIndex = ranked.findIndex(a => a.id === albumId);
-      if (currentIndex === -1 || currentIndex === targetIndex) return;
-
-      // Simple reorder
-      [album] = newRankedList.splice(currentIndex, 1);
-      newRankedList.splice(targetIndex, 0, album);
-
-    } else { // Source is 'pool'
-      const albumFromPool = pool.find(a => a.id === albumId);
-      if (!albumFromPool) return;
-      album = albumFromPool;
-
-      // Insert into specific position
-      newRankedList.splice(targetIndex, 0, album);
+    if (existingIndex !== -1) {
+      // Re-ordering within ranked
+      if (existingIndex === targetIndex) return; // No change
+      newRankedList.splice(existingIndex, 1);
+    } else if (source === 'pool') {
+      // Moving from pool to ranked at a specific index
+      // The album is not in newRankedList yet
+    } else {
+        return; // Should not happen
     }
-    
+
+    newRankedList.splice(targetIndex, 0, album);
     onUpdateRanked(newRankedList);
   };
 
@@ -101,7 +100,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
       {/* Ranked Column */}
       <div 
-        className="flex flex-col h-full bg-zinc-900/50 rounded-3xl border border-zinc-800 overflow-hidden"
+        className="flex flex-col h-[60vh] lg:h-full bg-zinc-900/50 rounded-3xl border border-zinc-800 overflow-hidden"
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, 'ranked')}
       >
@@ -116,7 +115,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
              </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {ranked.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-2xl">
                 <Trophy size={48} className="mb-4 opacity-20" />
@@ -129,7 +128,8 @@ export const RankingView: React.FC<RankingViewProps> = ({
                 className="relative"
                 onDragOver={(e) => {
                   e.preventDefault(); 
-                  e.currentTarget.classList.add('bg-zinc-700/50'); // Visual feedback
+                  e.stopPropagation();
+                  e.currentTarget.classList.add('bg-zinc-700/50');
                 }}
                 onDragLeave={(e) => e.currentTarget.classList.remove('bg-zinc-700/50')}
                 onDrop={(e) => {
@@ -144,7 +144,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
                   isRanked={true}
                   onDemote={demote}
                   onMove={moveRank}
-                  onDragStart={(e, id) => handleDragStart(e, id, 'ranked')}
+                  onDragStart={handleDragStart}
                 />
               </div>
             ))
@@ -154,7 +154,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
 
       {/* Pool Column */}
       <div 
-        className="flex flex-col h-full bg-zinc-900/50 rounded-3xl border border-zinc-800 overflow-hidden"
+        className="flex flex-col h-[60vh] lg:h-full bg-zinc-900/50 rounded-3xl border border-zinc-800 overflow-hidden"
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, 'pool')}
       >
@@ -169,7 +169,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
              </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
            {pool.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600">
                 <p>Search and add albums to the group pool</p>
@@ -182,7 +182,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
                 index={idx}
                 isRanked={false}
                 onPromote={promote}
-                onDragStart={(e, id) => handleDragStart(e, id, 'pool')}
+                onDragStart={handleDragStart}
               />
             ))
           )}

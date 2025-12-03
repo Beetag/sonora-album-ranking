@@ -4,7 +4,7 @@ import { RankingView } from './components/RankingView';
 import { CommunityView } from './components/CommunityView';
 import { GroupsView } from './components/GroupsView';
 import { Album, Group, GroupRanking, PoolAlbum, RankedAlbum, AlbumSubcollection } from './types';
-import { LayoutGrid, Users, Calendar, Music2, Loader2, Save, CheckCircle2, LogOut, LogIn, AlertCircle, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, Users, Calendar, Music2, Loader2, Save, CheckCircle2, LogOut, LogIn, ArrowLeft } from 'lucide-react';
 import { auth, signInWithGoogle, logout } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
@@ -14,6 +14,7 @@ import {
   subscribeToGroupUserRanking,
   updateUserGroupRanking
 } from './services/groupService';
+import { Toaster, toast } from 'react-hot-toast';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
@@ -34,7 +35,6 @@ const App: React.FC = () => {
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [authError, setAuthError] = useState<{title: string, message: string} | null>(null);
 
   const handleViewChange = (newView: 'ranking' | 'community') => {
     setCommunitySelectedGroup(null);
@@ -91,31 +91,49 @@ const App: React.FC = () => {
     };
   }, [user, rankingSelectedGroup, subcollectionId]);
 
-  const handleAddAlbum = useCallback(async (album: Album) => {
+  const handleAddAlbum = useCallback((album: Album) => {
     if (!user || !rankingSelectedGroup) return;
-    const poolAlbum: Omit<PoolAlbum, 'id' | 'addedAt' | 'addedBy'> = { title: album.title, artist: album.artist, year: album.year, coverUrl: album.coverUrl, spotifyId: album.id };
-    try {
-      const newAlbumId = await addAlbumToPool(rankingSelectedGroup.id, subcollectionId, poolAlbum, user.uid);
-      setGroupPool(prevPool => [...prevPool, { ...poolAlbum, id: newAlbumId, addedAt: new Date(), addedBy: user.uid }]);
-    } catch (error: any) {
-       setAuthError({ title: 'Error Adding Album', message: error.message });
-    }
+
+    const poolAlbum: Omit<PoolAlbum, 'id' | 'addedAt' | 'addedBy'> = { 
+        title: album.title, 
+        artist: album.artist, 
+        year: album.year, 
+        coverUrl: album.coverUrl, 
+        spotifyId: album.id 
+    };
+    
+    const addPromise = addAlbumToPool(rankingSelectedGroup.id, subcollectionId, poolAlbum, user.uid);
+
+    toast.promise(addPromise, {
+        loading: `Adding "${album.title}"...`,
+        success: (newAlbumId) => {
+            setGroupPool(prevPool => [...prevPool, { ...poolAlbum, id: newAlbumId, addedAt: new Date(), addedBy: user.uid }]);
+            return `"${album.title}" added to pool!`
+        },
+        error: (err) => err.message || 'Failed to add album.',
+    });
   }, [user, rankingSelectedGroup, subcollectionId]);
 
   const handleSave = async () => {
     if (!user || !rankingSelectedGroup) return;
     setIsSaving(true);
-    try {
-      await updateUserGroupRanking(rankingSelectedGroup.id, user, { 
-        [subcollectionId]: currentRanking[subcollectionId] 
-      });
-      setHasUnsavedChanges(false);
-    } catch (error: any) {
-      console.error("Failed to save ranking", error);
-      setAuthError({ title: "Save Failed", message: `Could not save ranking. ${error.message}` });
-    } finally {
-      setIsSaving(false);
-    }
+
+    const savePromise = updateUserGroupRanking(rankingSelectedGroup.id, user, { 
+      [subcollectionId]: currentRanking[subcollectionId] 
+    });
+
+    toast.promise(savePromise, {
+      loading: 'Saving ranking...',
+      success: () => {
+        setHasUnsavedChanges(false);
+        setIsSaving(false);
+        return 'Ranking saved successfully!';
+      },
+      error: (err) => {
+        setIsSaving(false);
+        return `Save failed: ${err.message}`;
+      }
+    });
   };
 
   const updateRankedList = (newRanked: RankedAlbum[]) => {
@@ -128,10 +146,11 @@ const App: React.FC = () => {
   }
 
   const handleLogin = async () => {
-    setAuthError(null);
-    try { await signInWithGoogle(); } catch (error: any) {
+    try { 
+      await signInWithGoogle(); 
+    } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') return;
-      setAuthError({ title: "Login Failed", message: error.message });
+      toast.error(`Login Failed: ${error.message}`);
     }
   };
 
@@ -140,6 +159,7 @@ const App: React.FC = () => {
     setRankingSelectedGroup(null);
     setCommunitySelectedGroup(null);
     setHasUnsavedChanges(false);
+    toast.success('Signed out successfully.');
   };
   
   const handleChangeGroup = () => {
@@ -162,6 +182,17 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white pb-20">
+       <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            background: '#27272a',
+            color: '#fff',
+            border: '1px solid #3f3f46'
+          },
+        }}
+      />
       <header className="sticky top-0 z-50 bg-[#121212]/80 backdrop-blur-xl border-b border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -225,17 +256,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        
-        {authError && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3 max-w-2xl mx-auto">
-             <AlertCircle className="text-red-500 flex-shrink-0" size={20} />
-              <div>
-                <h3 className="font-bold text-red-400 text-sm">{authError.title}</h3>
-                <p className="text-red-300 text-xs mt-1 whitespace-pre-wrap">{authError.message}</p>
-              </div>
-          </div>
-        )}
-
         {viewMode === 'ranking' && !rankingSelectedGroup && (
           <GroupsView user={user} onSelectGroup={setRankingSelectedGroup} />
         )}
