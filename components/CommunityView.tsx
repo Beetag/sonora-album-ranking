@@ -30,12 +30,12 @@ const MemberRankingCard: React.FC<{ member: CommunityUserRanking, year: number, 
       </div>
       <div className="p-4 flex-grow">
         {displayedRankings.length > 0 ? (
-          <ol className="list-decimal list-inside text-sm text-zinc-300 space-y-2">
+          <ol className="space-y-3">
             {displayedRankings.map((album: RankedAlbum) => (
-              <li key={album.albumId} className="truncate flex items-center gap-3">
-                  <span className="text-xs text-zinc-500 w-5 text-center">{album.rank}.</span>
-                  <img src={album.coverUrl} alt={album.title} className="w-8 h-8 rounded-sm" />
-                  <div>
+              <li key={album.albumId} className="flex items-center gap-3">
+                  <span className="flex-shrink-0 text-xs text-zinc-500 w-5 text-center">{album.rank}.</span>
+                  <img src={album.coverUrl} alt={album.title} className="flex-shrink-0 w-8 h-8 rounded-sm" />
+                  <div className="min-w-0">
                       <p className="font-medium text-zinc-200 truncate">{album.title}</p>
                       <p className="text-xs text-zinc-400 truncate">{album.artist}</p>
                   </div>

@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import {
-  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, writeBatch, collectionGroup
+  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup
 } from 'firebase/firestore';
 import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
 import { User } from 'firebase/auth';
@@ -30,24 +30,35 @@ const createInitialRankingDoc = (user: User, groupId: string) => ({
 export const createGroup = async (groupName: string, user: User): Promise<Group> => {
   if (!groupName.trim()) throw new Error("Group name cannot be empty.");
 
-  const batch = writeBatch(db);
   const newGroupRef = doc(collection(db, GROUPS_COLLECTION));
 
-  batch.set(newGroupRef, {
+  const initialMemberInfo = {
+    [user.uid]: {
+      username: user.displayName || 'Anonymous',
+      avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`,
+    }
+  };
+
+  // Step 1: Create the group document.
+  await setDoc(newGroupRef, {
     name: groupName,
     createdBy: user.uid,
-    createdAt: new date(),
+    createdAt: new Date(),
     members: [user.uid],
     code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+    memberInfo: initialMemberInfo,
   });
 
+  // Step 2: Confirm the write has propagated by reading the document back.
+  // This prevents a race condition where the second write is attempted before the security rules can see the user as a member.
+  await getDoc(newGroupRef);
+
+  // Step 3: Create the initial ranking document for the creator.
   const rankingDocRef = doc(db, GROUPS_COLLECTION, newGroupRef.id, 'rankings', user.uid);
-  batch.set(rankingDocRef, createInitialRankingDoc(user, newGroupRef.id));
+  await setDoc(rankingDocRef, createInitialRankingDoc(user, newGroupRef.id));
 
-  await batch.commit();
-
-  const docSnap = await getDoc(newGroupRef);
-  return { id: docSnap.id, ...docSnap.data() } as Group;
+  const finalDocSnap = await getDoc(newGroupRef);
+  return { id: finalDocSnap.id, ...finalDocSnap.data() } as Group;
 };
 
 export const joinGroupByCode = async (code: string, user: User): Promise<void> => {
@@ -62,15 +73,28 @@ export const joinGroupByCode = async (code: string, user: User): Promise<void> =
   const groupDoc = querySnapshot.docs[0];
   const groupData = groupDoc.data() as Group;
 
-  if (groupData.members.includes(user.uid)) return;
+  if (groupData.members.includes(user.uid)) {
+      console.log("User is already a member of this group.");
+      return;
+  }
 
-  const batch = writeBatch(db);
-  batch.update(groupDoc.ref, { members: [...groupData.members, user.uid] });
+  // --- Step 1: Update the Group Document to add the new member ---
+  const newMemberInfo = {
+    username: user.displayName || 'Anonymous',
+    avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`,
+  };
+  const updatedMembers = [...groupData.members, user.uid];
+  await updateDoc(groupDoc.ref, {
+      members: updatedMembers,
+      [`memberInfo.${user.uid}`]: newMemberInfo
+  });
 
+  // --- Step 2: Confirm the membership update has propagated by reading the doc back. ---
+  await getDoc(groupDoc.ref);
+
+  // --- Step 3: Create the Initial Ranking Document for the new member ---
   const rankingDocRef = doc(db, GROUPS_COLLECTION, groupDoc.id, 'rankings', user.uid);
-  batch.set(rankingDocRef, createInitialRankingDoc(user, groupDoc.id));
-
-  await batch.commit();
+  await setDoc(rankingDocRef, createInitialRankingDoc(user, groupDoc.id));
 };
 
 // --- Functions for Group Album Pools ---

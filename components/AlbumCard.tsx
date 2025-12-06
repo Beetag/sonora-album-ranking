@@ -7,10 +7,10 @@ interface AlbumCardProps {
   index: number;
   rank?: number;
   isRanked: boolean;
-  onRemove?: (id: string) => void; // Optional on pool items for now
+  onRemove?: (id: string) => void;
   onMove?: (id: string, direction: 'up' | 'down') => void;
-  onPromote?: (id: string) => void; // Pool -> Rank
-  onDemote?: (id: string) => void; // Rank -> Pool
+  onPromote?: (id: string) => void;
+  onDemote?: (id: string) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
 }
 
@@ -52,10 +52,10 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
       <img
         src={album.coverUrl}
         alt={album.title}
-        className="w-10 h-10 md:w-12 md:h-12 rounded-md object-cover shadow-md bg-zinc-900"
+        className="w-10 h-10 md:w-12 md:h-12 rounded-md object-cover shadow-md bg-zinc-900 flex-shrink-0"
       />
 
-      {/* Info */}
+      {/* Info - min-w-0 is crucial for text truncation in flexbox */}
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-white truncate text-sm">{album.title}</h4>
         <p className="text-zinc-400 text-xs truncate">{album.artist}</p>

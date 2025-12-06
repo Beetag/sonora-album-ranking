@@ -28,6 +28,7 @@ export interface Group {
   createdBy: string;
   members: string[]; // Array of user IDs
   createdAt: any; // Firestore Timestamp
+  memberInfo?: { [key: string]: { username: string; avatarUrl: string; } };
 }
 
 export interface RankedAlbum {

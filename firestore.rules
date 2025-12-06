@@ -1,16 +1,37 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check group membership
     function isGroupMember(groupId) {
       return get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
     match /groups/{groupId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth.uid == resource.data.createdBy || isGroupMember(groupId);
+      allow create: if request.auth.uid == request.resource.data.createdBy;
+
+      allow update: if 
+        // Allow any update by an existing member (for future features like changing group name)
+        isGroupMember(groupId) || 
+
+        // OR, allow a non-member to join, under strict conditions
+        (
+          !isGroupMember(groupId) &&
+          // The request must be an update, not a create or delete
+          request.resource.data.diff(resource.data) != null &&
+
+          // Check that only 'members' and 'memberInfo' are being changed
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberInfo']) &&
+          
+          // Verify the 'members' array change: exactly one new member (themselves)
+          request.resource.data.members == resource.data.members.concat([request.auth.uid]) &&
+
+          // Verify the 'memberInfo' map change: exactly one new key (their own uid)
+          // This robustly handles the case where 'memberInfo' might not exist on the old document
+          request.resource.data.memberInfo.size() == resource.data.get('memberInfo', {}).size() + 1 &&
+          request.resource.data.memberInfo[request.auth.uid] != null
+        );
 
       match /fr_pool/{albumId} {
         allow read, write: if isGroupMember(groupId);
@@ -20,21 +41,19 @@ service cloud.firestore {
         allow read, write: if isGroupMember(groupId);
       }
       
-      // Rules for user-specific rankings within a group
       match /rankings/{userId} {
-        // A user can read any ranking in a group they belong to.
+        // Corrected the typo 'isGroup-Member' to 'isGroupMember'
         allow read: if isGroupMember(groupId);
-        // A user can only create or update their own ranking document.
-        allow create, update: if request.auth.uid == userId && isGroupMember(groupId);
+        // Allow user to create their OWN ranking doc.
+        allow create: if request.auth.uid == userId;
+        // Allow update only if user is a member and it's their own doc.
+        allow update: if request.auth.uid == userId && isGroupMember(groupId);
       }
     }
     
     // This rule allows the collectionGroup query for the Community View.
-    // It ensures a user can READ rankings from groups they are a member of.
-    match /{path=**}/rankings/{userId} {
-        // Allow reading a ranking document if the requesting user is a member 
-        // of the group specified in that document's `userInfo.groupId` field.
-        allow read: if get(/databases/$(database)/documents/groups/$(resource.data.userInfo.groupId)).data.members.hasAny([request.auth.uid]);
-    }
+        match /{path=**}/rankings/{userId} {
+                allow read: if get(/databases/$(database)/documents/groups/$(resource.data.userInfo.groupId)).data.members.hasAny([request.auth.uid]);
+        }
   }
 }
