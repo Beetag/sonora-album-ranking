@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Group, CommunityUserRanking, RankedAlbum } from '../types';
+import { Group, CommunityUserRanking, RankedAlbum, YearlyRanking } from '../types';
 import { getCommunityRankings } from '../services/groupService';
 import { Loader2, ArrowLeft, Users, Trophy, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { User } from 'firebase/auth';
@@ -18,7 +18,10 @@ interface CommunityViewProps {
 const MemberRankingCard: React.FC<{ member: CommunityUserRanking, year: number, category: 'French' | 'International' }> = ({ member, year, category }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const subcollectionId = category === 'French' ? 'fr' : 'inter';
-  const memberRankings = (member.rankings[subcollectionId] || []).filter(r => r.year === year);
+  
+  // Access the rankings for the specific year from the new data structure
+  const yearlyRanking: YearlyRanking | undefined = member.rankings.rankingsByYear[year];
+  const memberRankings = yearlyRanking ? (yearlyRanking[subcollectionId] || []) : [];
 
   const displayedRankings = isExpanded ? memberRankings : memberRankings.slice(0, 3);
 
@@ -107,8 +110,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
   }
 
   const subcollectionId = category === 'French' ? 'fr' : 'inter';
-  const membersWithRankings = communityRankings
-      .filter(member => (member.rankings[subcollectionId] || []).some(r => r.year === year));
+  // Filter members who have rankings for the selected year and category
+  const membersWithRankings = communityRankings.filter(member => {
+      const yearlyRanking = member.rankings.rankingsByYear[year];
+      return yearlyRanking && yearlyRanking[subcollectionId] && yearlyRanking[subcollectionId].length > 0;
+  });
 
   return (
     <div>

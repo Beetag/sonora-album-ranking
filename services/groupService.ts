@@ -17,8 +17,7 @@ export const getUserGroups = async (userId: string): Promise<Group[]> => {
 };
 
 const createInitialRankingDoc = (user: User, groupId: string) => ({
-  fr: [],
-  inter: [],
+  rankingsByYear: {},
   updatedAt: new Date(),
   userInfo: {
     username: user.displayName || 'Anonymous',
@@ -165,8 +164,7 @@ export const getCommunityRankings = async (groupIds: string[]): Promise<Communit
             username: data.userInfo.username,
             avatarUrl: data.userInfo.avatarUrl,
             rankings: {
-                fr: data.fr || [],
-                inter: data.inter || [],
+                rankingsByYear: data.rankingsByYear || {},
                 updatedAt: data.updatedAt
             }
         });

@@ -3,7 +3,7 @@ import { SearchBar } from './components/SearchBar';
 import { RankingView } from './components/RankingView';
 import { CommunityView } from './components/CommunityView';
 import { GroupsView } from './components/GroupsView';
-import { Album, Group, GroupRanking, PoolAlbum, RankedAlbum, AlbumSubcollection } from './types';
+import { Album, Group, GroupRanking, PoolAlbum, RankedAlbum, AlbumSubcollection, YearlyRanking } from './types';
 import { LayoutGrid, Users, Calendar, Music2, Loader2, Save, CheckCircle2, LogOut, LogIn, ArrowLeft } from 'lucide-react';
 import { auth, signInWithGoogle, logout } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -18,6 +18,12 @@ import { Toaster, toast } from 'react-hot-toast';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
+
+// --- Helper Functions ---
+const getInitialRanking = (): GroupRanking => ({
+    rankingsByYear: {},
+    updatedAt: null,
+});
 
 // Auth Guard Component
 const AuthGuard: React.FC<{
@@ -55,7 +61,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   
-  const [currentRanking, setCurrentRanking] = useState<GroupRanking>({ fr: [], inter: [] });
+  const [currentRanking, setCurrentRanking] = useState<GroupRanking>(getInitialRanking());
   const [groupPool, setGroupPool] = useState<PoolAlbum[]>([]);
 
   const [userGroups, setUserGroups] = useState<Group[]>([]);
@@ -96,7 +102,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user || !rankingSelectedGroup) {
       setGroupPool([]);
-      setCurrentRanking({ fr: [], inter: [] });
+      setCurrentRanking(getInitialRanking());
       return;
     }
 
@@ -107,9 +113,8 @@ const App: React.FC = () => {
     });
 
     const unsubscribe = subscribeToGroupUserRanking(rankingSelectedGroup.id, user.uid, (ranking) => {
-       if (isMounted && ranking) {
-         const newRankingState: GroupRanking = { fr: ranking.fr || [], inter: ranking.inter || [] };
-         setCurrentRanking(newRankingState);
+       if (isMounted) {
+         setCurrentRanking(ranking || getInitialRanking());
          setHasUnsavedChanges(false);
        }
     });
@@ -147,9 +152,12 @@ const App: React.FC = () => {
     if (!user || !rankingSelectedGroup) return;
     setIsSaving(true);
 
-    const savePromise = updateUserGroupRanking(rankingSelectedGroup.id, user, { 
-      [subcollectionId]: currentRanking[subcollectionId] 
-    });
+    // Construct the data to save, ensuring we only update the relevant year and category
+    const dataToSave: Partial<GroupRanking> = {
+      rankingsByYear: currentRanking.rankingsByYear,
+    };
+
+    const savePromise = updateUserGroupRanking(rankingSelectedGroup.id, user, dataToSave);
 
     toast.promise(savePromise, {
       loading: 'Saving ranking...',
@@ -165,14 +173,27 @@ const App: React.FC = () => {
     });
   };
 
-  const updateRankedList = (newRanked: RankedAlbum[]) => {
+ const updateRankedList = (newRanked: RankedAlbum[]) => {
     setCurrentRanking(prev => {
-        const otherYears = (prev[subcollectionId] || []).filter(item => item.year !== year);
-        const newCategoryList = [...otherYears, ...newRanked];
-        return { ...prev, [subcollectionId]: newCategoryList };
+        const updatedRankingsByYear = { ...prev.rankingsByYear };
+        
+        const currentYearRankings: YearlyRanking = updatedRankingsByYear[year] || { fr: [], inter: [] };
+        
+        const updatedCategoryRankings = {
+            ...currentYearRankings,
+            [subcollectionId]: newRanked,
+        };
+
+        updatedRankingsByYear[year] = updatedCategoryRankings;
+
+        return {
+            ...prev,
+            rankingsByYear: updatedRankingsByYear,
+        };
     });
     setHasUnsavedChanges(true);
-  }
+}
+
 
   const handleLogin = async () => {
     try { 
@@ -196,7 +217,9 @@ const App: React.FC = () => {
     setHasUnsavedChanges(false);
   };
 
-  const rankedList = (currentRanking[subcollectionId] || []).filter(item => item.year === year);
+  const yearlyRanking = currentRanking.rankingsByYear[year];
+  const rankedList = yearlyRanking ? (yearlyRanking[subcollectionId] || []) : [];
+  
   const poolList = groupPool.filter(poolAlbum => 
     !rankedList.some(rankedAlbum => rankedAlbum.albumId === poolAlbum.id) && poolAlbum.year === year
   );

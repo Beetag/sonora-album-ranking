@@ -41,10 +41,14 @@ export interface RankedAlbum {
   coverUrl: string;
 }
 
+export interface YearlyRanking {
+    fr: RankedAlbum[];
+    inter: RankedAlbum[];
+}
+
 export interface GroupRanking {
-  fr: RankedAlbum[];
-  inter: RankedAlbum[];
-  updatedAt: any; // Firestore Timestamp
+    rankingsByYear: { [year: number]: YearlyRanking };
+    updatedAt: any; // Firestore Timestamp
 }
 
 /*
