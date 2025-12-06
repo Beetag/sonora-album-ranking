@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import {
-  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup
+  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup, writeBatch, deleteDoc
 } from 'firebase/firestore';
 import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
 import { User } from 'firebase/auth';
@@ -94,6 +94,24 @@ export const joinGroupByCode = async (code: string, user: User): Promise<void> =
   // --- Step 3: Create the Initial Ranking Document for the new member ---
   const rankingDocRef = doc(db, GROUPS_COLLECTION, groupDoc.id, 'rankings', user.uid);
   await setDoc(rankingDocRef, createInitialRankingDoc(user, groupDoc.id));
+};
+
+export const deleteGroup = async (groupId: string): Promise<void> => {
+  const batch = writeBatch(db);
+  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+
+  // Delete all sub-collections (rankings, fr_pool, inter_pool)
+  const subcollections = ['rankings', 'fr_pool', 'inter_pool'];
+  for (const sub of subcollections) {
+    const subRef = collection(db, GROUPS_COLLECTION, groupId, sub);
+    const snapshot = await getDocs(subRef);
+    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+  }
+
+  // Delete the main group document
+  batch.delete(groupRef);
+
+  await batch.commit();
 };
 
 // --- Functions for Group Album Pools ---

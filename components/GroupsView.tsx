@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { Group } from '../types';
-import { getUserGroups, createGroup, joinGroupByCode } from '../services/groupService';
-import { Plus, Users, Hash, Copy, LogIn, Loader2, X, Check, TestTube } from 'lucide-react';
+import { getUserGroups, createGroup, joinGroupByCode, deleteGroup } from '../services/groupService';
+import { Plus, Users, Hash, Copy, LogIn, Loader2, X, Check, TestTube, Trash2, AlertTriangle } from 'lucide-react';
 
 interface GroupsViewProps {
   user: User | null;
@@ -36,6 +36,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Group | null>(null);
   
   // Form States
   const [newGroupName, setNewGroupName] = useState('');
@@ -108,6 +109,24 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
       setActionLoading(false);
     }
   };
+  
+  const handleDelete = async () => {
+    if (!showDeleteConfirm || !user) return;
+
+    setActionLoading(true);
+    setError(null);
+
+    try {
+      await deleteGroup(showDeleteConfirm.id);
+      await fetchGroups();
+      setShowDeleteConfirm(null);
+    } catch (e) {
+      console.error("Error deleting group:", e);
+      setError("Failed to delete group. You might not have permission or there was a network error.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -171,7 +190,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
           {groups.map((group) => (
             <div 
               key={group.id} 
-              className="group relative bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-700 transition-all shadow-sm hover:shadow-md"
+              className="group relative bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-700 transition-all shadow-sm hover:shadow-md flex flex-col"
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="p-2.5 bg-zinc-800 rounded-xl text-white font-bold text-lg">
@@ -190,19 +209,41 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 )}
               </div>
               
-              <h3 className="text-xl font-bold text-white mb-2 truncate">{group.name}</h3>
-              
-              <div className="flex items-center gap-2 text-zinc-400 text-sm mb-6">
-                <Users size={16} />
-                <span>{group.members.length} member{group.members.length !== 1 ? 's' : ''}</span>
+              <div className="flex-grow">
+                <h3 className="text-xl font-bold text-white mb-2 truncate">{group.name}</h3>
+                <div className="flex items-center gap-2 text-zinc-400 text-sm mb-6">
+                  <Users size={16} />
+                  <span>{group.members.length} member{group.members.length !== 1 ? 's' : ''}</span>
+                </div>
               </div>
 
-              <button 
-                onClick={() => onSelectGroup(group)}
-                className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors"
-              >
-                Open Group
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => onSelectGroup(group)}
+                  className="flex-grow py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  Open Group
+                </button>
+                {user && group.createdBy === user.uid && (
+                  <button 
+                    onClick={() => setShowDeleteConfirm(group)}
+                    className="p-2.5 bg-red-900/50 hover:bg-red-900/80 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition-colors"
+                    title="Delete Group"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                 {/* Test mode delete button */}
+                {!user && group.createdBy === 'mock-user' && (
+                     <button 
+                        onClick={() => alert('Delete functionality is disabled in Test Mode.')}
+                        className="p-2.5 bg-red-900/50 hover:bg-red-900/80 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition-colors"
+                        title="Delete Group"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -289,6 +330,42 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 Join Group
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-center items-center w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500/20 mx-auto mb-4">
+                <AlertTriangle size={32} className="text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white text-center mb-2">Delete Group</h3>
+            <p className="text-zinc-400 text-sm mb-6 text-center">
+              Are you sure you want to delete the group "<span className="font-bold text-white">{showDeleteConfirm.name}</span>"?
+              <br /> 
+              This action is irreversible and will delete all associated data.
+            </p>
+
+            {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
+
+            <div className="flex gap-3">
+                <button 
+                    onClick={() => setShowDeleteConfirm(null)}
+                    className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors"
+                >
+                    Cancel
+                </button>
+                <button 
+                    onClick={handleDelete}
+                    disabled={actionLoading}
+                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:hover:bg-red-600 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2"
+                >
+                    {actionLoading && <Loader2 className="animate-spin" size={18} />}
+                    Delete Forever
+                </button>
+            </div>
           </div>
         </div>
       )}

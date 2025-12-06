@@ -74,6 +74,9 @@ const App: React.FC = () => {
   const handleViewChange = (newView: 'ranking' | 'community') => {
     setCommunitySelectedGroup(null);
     setViewMode(newView);
+    if (user) {
+      getUserGroups(user.uid).then(setUserGroups);
+    }
   };
 
   useEffect(() => {
