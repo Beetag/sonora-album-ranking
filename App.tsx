@@ -19,6 +19,35 @@ import { Toaster, toast } from 'react-hot-toast';
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
 
+// Auth Guard Component
+const AuthGuard: React.FC<{
+  user: User | null;
+  handleLogin: () => void;
+  title: string;
+  message: string;
+  children: React.ReactNode;
+}> = ({ user, handleLogin, title, message, children }) => {
+  if (!user) {
+    return (
+      <div className="text-center py-20 max-w-lg mx-auto bg-zinc-900/50 rounded-2xl p-8 border border-zinc-800">
+        <Users size={48} className="mx-auto text-green-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2 text-white">{title}</h2>
+        <p className="text-zinc-400 mb-8">{message}</p>
+        <button
+          onClick={handleLogin}
+          className="flex items-center gap-2 text-lg font-bold bg-green-600 text-white hover:bg-green-500 px-6 py-3 rounded-lg transition-colors mx-auto shadow-lg shadow-green-900/20"
+        >
+          <LogIn size={20} />
+          Sign In with Google
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+
 const App: React.FC = () => {
   const [year, setYear] = useState(CURRENT_YEAR);
   const [category, setCategory] = useState<'French' | 'International'>('French');
@@ -183,7 +212,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#121212] text-white pb-20">
        <Toaster
-        position="top-center"
+        position="bottom-right"
         reverseOrder={false}
         toastOptions={{
           style: {
@@ -256,172 +285,186 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {viewMode === 'ranking' && !rankingSelectedGroup && (
-          <GroupsView user={user} onSelectGroup={setRankingSelectedGroup} />
+        {viewMode === 'ranking' && (
+           <AuthGuard
+            user={user}
+            handleLogin={handleLogin}
+            title="Access Your Rankings"
+            message="Please sign in to create, view, and manage your album rankings within your groups."
+           >
+            {!rankingSelectedGroup ? (
+              <GroupsView user={user} onSelectGroup={setRankingSelectedGroup} />
+            ) : (
+              <>
+                <div className="md:flex md:items-center md:justify-between gap-4 mb-8">
+                  
+                  <div className="flex-shrink-0 mb-4 md:mb-0">
+                    <button
+                      onClick={handleChangeGroup}
+                      className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <ArrowLeft size={16} />
+                      Change Group
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-4 flex-grow">
+                    {/* Mobile: French/International buttons (full width) */}
+                    <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl w-full md:hidden">
+                      <button
+                        onClick={() => setCategory('French')}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold transition-all w-1/2 ${
+                          category === 'French' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        French
+                      </button>
+                      <button
+                        onClick={() => setCategory('International')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all w-1/2 ${
+                          category === 'International' 
+                            ? 'bg-purple-600 text-white' 
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        International
+                      </button>
+                    </div>
+
+                    {/* Mobile: Calendar + Save button */}
+                    <div className="flex items-center gap-2 w-full md:hidden">
+                      <div className="relative w-1/2">
+                        <select
+                          value={year}
+                          onChange={(e) => setYear(parseInt(e.target.value))}
+                          className="w-full appearance-none bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 pl-4 pr-8 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                        >
+                          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-400">
+                          <Calendar size={16} />
+                        </div>
+                      </div>
+
+                      <div className='w-1/2'>
+                        <button
+                          onClick={handleSave}
+                          disabled={isSaving || !hasUnsavedChanges} 
+                          className={`
+                            w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg whitespace-nowrap
+                            ${
+                              hasUnsavedChanges
+                                ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' 
+                                : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                            }
+                          `}
+                        >
+                          {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
+                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Desktop: Calendar + French/International (centered) + Save */}
+                    <div className="hidden md:flex md:items-center md:justify-end gap-2 w-full">
+                      <div className="relative flex-shrink-0">
+                        <select
+                          value={year}
+                          onChange={(e) => setYear(parseInt(e.target.value))}
+                          className="w-full appearance-none bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 pl-4 pr-8 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                        >
+                          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-400">
+                          <Calendar size={16} />
+                        </div>
+                      </div>
+
+                      <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mx-auto">
+                        <button
+                          onClick={() => setCategory('French')}
+                          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
+                            category === 'French' 
+                              ? 'bg-blue-600 text-white' 
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          French
+                        </button>
+                        <button
+                          onClick={() => setCategory('International')}
+                          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                            category === 'International' 
+                              ? 'bg-purple-600 text-white' 
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          International
+                        </button>
+                      </div>
+
+                      <div className='flex-shrink-0'>
+                        <button
+                          onClick={handleSave}
+                          disabled={isSaving || !hasUnsavedChanges} 
+                          className={`
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg whitespace-nowrap
+                            ${
+                              hasUnsavedChanges
+                                ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' 
+                                : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                            }
+                          `}
+                        >
+                          {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
+                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <SearchBar year={year} category={category} onAddAlbum={handleAddAlbum} />
+                <div className="h-[calc(100vh-350px)] min-h-[500px]">
+                  <RankingView 
+                    category={category}
+                    ranked={rankedList.map(r => ({ ...r, id: r.albumId }))}
+                    pool={poolList.map(p => ({ ...p, language: category, id: p.id }))}
+                    onUpdateRanked={(items) => {
+                      const newRanked = items.map((item, index) => ({
+                        albumId: item.id,
+                        rank: index + 1,
+                        title: item.title,
+                        artist: item.artist,
+                        year: item.year,
+                        coverUrl: item.coverUrl,
+                      }));
+                      updateRankedList(newRanked);
+                    }}
+                  />
+                </div>
+              </>
+            )}
+           </AuthGuard>
         )}
 
         {viewMode === 'community' && (
-           <CommunityView 
-             user={user} 
-             groups={userGroups} 
-             selectedGroup={communitySelectedGroup}
-             onSelectGroup={setCommunitySelectedGroup}
-             onClearGroup={() => setCommunitySelectedGroup(null)}
+           <AuthGuard
+            user={user}
+            handleLogin={handleLogin}
+            title="Join the Community"
+            message="Log in to see what other members of your groups are ranking and share your own taste."
+           >
+            <CommunityView 
+              user={user} 
+              groups={userGroups} 
+              selectedGroup={communitySelectedGroup}
+              onSelectGroup={setCommunitySelectedGroup}
+              onClearGroup={() => setCommunitySelectedGroup(null)}
             />
-        )}
-
-        {(viewMode === 'ranking' && rankingSelectedGroup) && (
-          <>
-            <div className="md:flex md:items-center md:justify-between gap-4 mb-8">
-              
-              <div className="flex-shrink-0 mb-4 md:mb-0">
-                <button
-                  onClick={handleChangeGroup}
-                  className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={16} />
-                  Change Group
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-4 flex-grow">
-                {/* Mobile: French/International buttons (full width) */}
-                <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl w-full md:hidden">
-                  <button
-                    onClick={() => setCategory('French')}
-                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all w-1/2 ${
-                      category === 'French' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    French
-                  </button>
-                  <button
-                    onClick={() => setCategory('International')}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all w-1/2 ${
-                      category === 'International' 
-                        ? 'bg-purple-600 text-white' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    International
-                  </button>
-                </div>
-
-                {/* Mobile: Calendar + Save button */}
-                <div className="flex items-center gap-2 w-full md:hidden">
-                  <div className="relative w-1/2">
-                    <select
-                      value={year}
-                      onChange={(e) => setYear(parseInt(e.target.value))}
-                      className="w-full appearance-none bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 pl-4 pr-8 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                    >
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-400">
-                      <Calendar size={16} />
-                    </div>
-                  </div>
-
-                  <div className='w-1/2'>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving || !hasUnsavedChanges} 
-                      className={`
-                        w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg whitespace-nowrap
-                        ${
-                          hasUnsavedChanges
-                            ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' 
-                            : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                        }
-                      `}
-                    >
-                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                      <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Desktop: Calendar + French/International (centered) + Save */}
-                <div className="hidden md:flex md:items-center md:justify-end gap-2 w-full">
-                  <div className="relative flex-shrink-0">
-                    <select
-                      value={year}
-                      onChange={(e) => setYear(parseInt(e.target.value))}
-                      className="w-full appearance-none bg-zinc-800 border border-zinc-700 rounded-xl py-2.5 pl-4 pr-8 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                    >
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-400">
-                      <Calendar size={16} />
-                    </div>
-                  </div>
-
-                  <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-2xl mx-auto">
-                    <button
-                      onClick={() => setCategory('French')}
-                      className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
-                        category === 'French' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      French
-                    </button>
-                    <button
-                      onClick={() => setCategory('International')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                        category === 'International' 
-                          ? 'bg-purple-600 text-white' 
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      International
-                    </button>
-                  </div>
-
-                  <div className='flex-shrink-0'>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving || !hasUnsavedChanges} 
-                      className={`
-                        flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg whitespace-nowrap
-                        ${
-                          hasUnsavedChanges
-                            ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' 
-                            : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                        }
-                      `}
-                    >
-                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                      <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <SearchBar year={year} category={category} onAddAlbum={handleAddAlbum} />
-            <div className="h-[calc(100vh-350px)] min-h-[500px]">
-              <RankingView 
-                category={category}
-                ranked={rankedList.map(r => ({ ...r, id: r.albumId }))}
-                pool={poolList.map(p => ({ ...p, language: category, id: p.id }))}
-                onUpdateRanked={(items) => {
-                  const newRanked = items.map((item, index) => ({
-                    albumId: item.id,
-                    rank: index + 1,
-                    title: item.title,
-                    artist: item.artist,
-                    year: item.year,
-                    coverUrl: item.coverUrl,
-                  }));
-                  updateRankedList(newRanked);
-                }}
-              />
-            </div>
-          </>
+           </AuthGuard>
         )}
       </main>
     </div>
