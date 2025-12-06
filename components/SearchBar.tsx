@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, XCircle } from 'lucide-react';
-import { searchAlbums } from '../services/itunesService';
-import { Album, AlbumLanguage } from '../types';
+import { searchAlbums } from '../services/spotifyService';
+import { Album } from '../types';
 
 interface SearchBarProps {
   year: number;
-  category: AlbumLanguage;
+  category: 'French' | 'International';
   onAddAlbum: (album: Album) => void;
 }
 
@@ -14,6 +14,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Album[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Debounce Logic for Auto-Search
   useEffect(() => {
@@ -21,14 +22,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
       if (query.trim().length > 1) {
         setIsSearching(true);
         setIsOpen(true);
-        // Clean previous results while loading new ones to avoid confusion
-        // setResults([]); 
+        setError(null);
         
         try {
           const albums = await searchAlbums(query, year, category);
           setResults(albums);
-        } catch (e) {
+        } catch (e: any) {
           console.error(e);
+          setError(e.message || 'An unknown error occurred.');
           setResults([]);
         } finally {
           setIsSearching(false);
@@ -36,6 +37,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
       } else {
         setResults([]);
         setIsOpen(false);
+        setError(null);
       }
     }, 500); // Wait 500ms after user stops typing
 
@@ -44,8 +46,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // The useEffect handles the search, but if user hits enter, 
-    // we ensure the dropdown opens if it closed.
     if (query.length > 1) setIsOpen(true);
   };
 
@@ -53,6 +53,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
     setQuery('');
     setResults([]);
     setIsOpen(false);
+    setError(null);
   };
 
   return (
@@ -66,12 +67,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
           className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 backdrop-blur-md border border-zinc-700 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all shadow-lg"
         />
         
-        {/* Left Icon */}
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
            <Search size={20} />
         </div>
 
-        {/* Right Action (Loader or Clear) */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2">
           {isSearching ? (
             <Loader2 className="animate-spin text-green-500" size={20} />
@@ -87,10 +86,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
         </div>
       </form>
 
-      {/* Results Dropdown */}
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-96 overflow-y-auto z-50">
-          {results.length > 0 ? (
+          {error ? (
+            <div className="p-4 text-center text-red-400">{error}</div>
+          ) : results.length > 0 ? (
             <div className="p-2 space-y-1">
               <div className="px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider flex justify-between">
                 <span>Select an album</span>
@@ -134,7 +134,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
         </div>
       )}
       
-      {/* Click outside to close */}
       {isOpen && (
          <div 
            className="fixed inset-0 z-[-1]" 

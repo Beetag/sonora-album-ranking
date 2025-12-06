@@ -13,12 +13,12 @@ const getEnv = (key: string) => {
 // Hardcoded keys as primary, falling back to env vars if available, then placeholders.
 // This ensures it works in the browser even if process is undefined.
 const firebaseConfig = {
-  apiKey: "AIzaSyDV6ZZUoY-Amb418SCFRmNs3dojL8Ujfmg", // As provided in your prompt
-  authDomain: "sonora-ranking.firebaseapp.com",
-  projectId: "sonora-ranking",
-  storageBucket: "sonora-ranking.firebasestorage.app",
-  messagingSenderId: "284691479646",
-  appId: "1:284691479646:web:30848fcd0f46950c8808cf"
+  apiKey: import.meta.env.VITE_API_KEY, // As provided in your prompt
+  authDomain: import.meta.env.VITE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
