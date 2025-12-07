@@ -147,12 +147,12 @@ const App: React.FC = () => {
     const addPromise = addAlbumToPool(rankingSelectedGroup.id, subcollectionId, poolAlbum, user.uid);
 
     toast.promise(addPromise, {
-        loading: `Adding "${album.title}"...`,
+        loading: `Ajout de "${album.title}"...`,
         success: (newAlbumId) => {
             setGroupPool(prevPool => [...prevPool, { ...poolAlbum, id: newAlbumId, addedAt: new Date(), addedBy: user.uid }]);
             return `"${album.title}" ajouté à la collection.`
         },
-        error: (err) => err.message || 'Failed to add album.',
+        error: (err) => err.message || 'Impossible d\'ajouter l\'album.',
     });
   }, [user, rankingSelectedGroup, subcollectionId]);
 
@@ -175,7 +175,7 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error checking if album is ranked:", error);
-      toast.error('Could not verify album status. Please try again.');
+      toast.error('Impossible de vérifier le statut de l\'album. Veuillez réessayer.');
     }
   }, [rankingSelectedGroup, groupPool]);
 
@@ -185,17 +185,17 @@ const App: React.FC = () => {
     const deletePromise = deleteAlbumFromPool(rankingSelectedGroup.id, subcollectionId, albumToDelete.id);
 
     toast.promise(deletePromise, {
-      loading: `Deleting "${albumToDelete.title}"...`,
+      loading: `Suppression de "${albumToDelete.title}"...`,
       success: () => {
         setGroupPool(prev => prev.filter(a => a.id !== albumToDelete.id));
         setShowDeleteConfirm(false);
         setAlbumToDelete(null);
-        return `"${albumToDelete.title}" deleted.`;
+        return `"${albumToDelete.title}" supprimé.`;
       },
       error: (err) => {
         setShowDeleteConfirm(false);
         setAlbumToDelete(null);
-        return err.message || 'Failed to delete album.';
+        return err.message || 'Impossible de supprimer l\'album.';
       },
     });
   };
@@ -211,7 +211,7 @@ const App: React.FC = () => {
     const savePromise = updateUserGroupRanking(rankingSelectedGroup.id, user, dataToSave);
 
     toast.promise(savePromise, {
-      loading: 'Saving ranking...',
+      loading: 'Enregistrement du classement...',
       success: () => {
         setHasUnsavedChanges(false);
         setIsSaving(false);
@@ -219,7 +219,7 @@ const App: React.FC = () => {
       },
       error: (err) => {
         setIsSaving(false);
-        return `Save failed: ${err.message}`;
+        return `L\'enregistrement a échoué: ${err.message}`;
       }
     });
   };
@@ -251,7 +251,7 @@ const App: React.FC = () => {
       await signInWithGoogle(); 
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') return;
-      toast.error(`Login Failed: ${error.message}`);
+      toast.error(`La connexion a échoué: ${error.message}`);
     }
   };
 
@@ -260,7 +260,7 @@ const App: React.FC = () => {
     setRankingSelectedGroup(null);
     setCommunitySelectedGroup(null);
     setHasUnsavedChanges(false);
-    toast.success('Signed out successfully.');
+    toast.success('Déconnexion réussie.');
   };
   
   const handleChangeGroup = () => {
@@ -398,8 +398,8 @@ const App: React.FC = () => {
            <AuthGuard
             user={user}
             handleLogin={handleLogin}
-            title="Access Your Rankings"
-            message="Please sign in to create, view, and manage your album rankings within your groups."
+            title="Accédez à vos classements"
+            message="Connectez-vous pour créer, voir et gérer vos classements d\'albums au sein de vos groupes."
            >
             {!rankingSelectedGroup ? (
               <GroupsView user={user} onSelectGroup={setRankingSelectedGroup} />
@@ -471,7 +471,7 @@ const App: React.FC = () => {
                           `}
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
+                          <span className="hidden sm:inline">{isSaving ? 'Enregistrement' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
                         </button>
                       </div>
                     </div>
@@ -500,7 +500,7 @@ const App: React.FC = () => {
                               : 'text-zinc-500 hover:text-zinc-300'
                           }`}
                         >
-                          French
+                          Français
                         </button>
                         <button
                           onClick={() => setCategory('International')}
@@ -528,7 +528,7 @@ const App: React.FC = () => {
                           `}
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
+                          <span className="hidden sm:inline">{isSaving ? 'Enregistrement' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
                         </button>
                       </div>
                     </div>

@@ -98,6 +98,8 @@ export const RankingView: React.FC<RankingViewProps> = ({
     onUpdateRanked(newRanked);
   };
 
+  const categoryDisplay = category === 'French' ? 'Français' : 'International';
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
       {/* Ranked Column */}
@@ -112,7 +114,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
                <Trophy size={24} />
              </div>
              <div>
-                <h2 className="text-xl font-bold text-white">Ton Top {category}</h2>
+                <h2 className="text-xl font-bold text-white">Ton Top {categoryDisplay}</h2>
                 <p className="text-xs text-zinc-500">{ranked.length} albums classés</p>
              </div>
           </div>
