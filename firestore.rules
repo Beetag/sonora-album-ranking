@@ -13,13 +13,10 @@ service cloud.firestore {
       allow create: if request.auth.uid == request.resource.data.createdBy;
       allow delete: if request.auth.uid == resource.data.createdBy;
 
-      allow update: if
-        isGroupMember(groupId) ||
-        (
-          !isGroupMember(groupId) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberInfo']) &&
-          request.resource.data.members == resource.data.members.append(request.auth.uid)
-        );
+      allow update: if isGroupMember(groupId) || 
+      (
+      	!isGroupMember(groupId) && request.resource.data.memberInfo.size() == resource.data.memberInfo.size() + 1
+      );
 
       match /rankings/{userId} {
         // Allow read if EITHER it's a direct query and user is a member,
