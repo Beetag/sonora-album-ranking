@@ -44,7 +44,7 @@ const AuthGuard: React.FC<{
           className="flex items-center gap-2 text-lg font-bold bg-green-600 text-white hover:bg-green-500 px-6 py-3 rounded-lg transition-colors mx-auto shadow-lg shadow-green-900/20"
         >
           <LogIn size={20} />
-          Sign In with Google
+          Se Connecter avec Google
         </button>
       </div>
     );
@@ -265,7 +265,7 @@ const App: React.FC = () => {
                }`}
              >
                <LayoutGrid size={16} />
-               <span className="hidden sm:inline">My Rankings</span>
+               <span className="hidden sm:inline">Mes Classements</span>
              </button>
              <button
                onClick={() => handleViewChange('community')}
@@ -274,7 +274,7 @@ const App: React.FC = () => {
                }`}
              >
                <Users size={16} />
-               <span className="hidden sm:inline">Community</span>
+               <span className="hidden sm:inline">Communauté</span>
              </button>
           </div>
           
@@ -330,7 +330,7 @@ const App: React.FC = () => {
                       className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
                     >
                       <ArrowLeft size={16} />
-                      Change Group
+                      Changer de Groupe
                     </button>
                   </div>
 
@@ -345,7 +345,7 @@ const App: React.FC = () => {
                             : 'text-zinc-500 hover:text-zinc-300'
                         }`}
                       >
-                        French
+                        Français
                       </button>
                       <button
                         onClick={() => setCategory('International')}
@@ -388,7 +388,7 @@ const App: React.FC = () => {
                           `}
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
+                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
                         </button>
                       </div>
                     </div>
@@ -445,7 +445,7 @@ const App: React.FC = () => {
                           `}
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : (hasUnsavedChanges ? <Save size={18} /> : <CheckCircle2 size={18} />)}
-                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Save' : 'Saved'}</span>
+                          <span className="hidden sm:inline">{isSaving ? 'Saving' : hasUnsavedChanges ? 'Sauvegarder' : 'Sauvegardé'}</span>
                         </button>
                       </div>
                     </div>
@@ -480,8 +480,8 @@ const App: React.FC = () => {
            <AuthGuard
             user={user}
             handleLogin={handleLogin}
-            title="Join the Community"
-            message="Log in to see what other members of your groups are ranking and share your own taste."
+            title="Rejoindre la Communauté"
+            message="Connectez-vous pour voir les classements des autres membres de vos groupes et partagez vos propres goûts."
            >
             <CommunityView 
               user={user} 

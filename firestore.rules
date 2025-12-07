@@ -2,8 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Securely checks if the requesting user is a member of the given group ID.
     function isGroupMember(groupId) {
-      return get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
     match /groups/{groupId} {
@@ -12,21 +14,21 @@ service cloud.firestore {
       allow delete: if request.auth.uid == resource.data.createdBy;
 
       allow update: if
-        // Allow any update by an existing member (for future features like changing group name)
         isGroupMember(groupId) ||
-
-        // OR, allow a non-member to join, under strict conditions
         (
-          // User must not already be a member
           !isGroupMember(groupId) &&
-          // The request must be an update to the 'members' or 'memberInfo' field
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberInfo']) &&
-          // Check that the user is only adding themselves to the members array
           request.resource.data.members == resource.data.members.append(request.auth.uid)
         );
 
       match /rankings/{userId} {
-        allow read: if isGroupMember(groupId);
+        // Allow read if EITHER it's a direct query and user is a member,
+        // OR it's a collectionGroup query that we can validate through the document's data.
+        allow read: if isGroupMember(groupId) || 
+                      ('userInfo' in resource.data && 
+                       'groupId' in resource.data.userInfo && 
+                       isGroupMember(resource.data.userInfo.groupId));
+
         allow create, update: if request.auth.uid == userId && isGroupMember(groupId);
       }
 

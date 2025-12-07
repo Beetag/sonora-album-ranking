@@ -110,8 +110,8 @@ export const RankingView: React.FC<RankingViewProps> = ({
                <Trophy size={24} />
              </div>
              <div>
-                <h2 className="text-xl font-bold text-white">Your Top {category}</h2>
-                <p className="text-xs text-zinc-500">{ranked.length} albums ranked</p>
+                <h2 className="text-xl font-bold text-white">Ton Top {category}</h2>
+                <p className="text-xs text-zinc-500">{ranked.length} albums classés</p>
              </div>
           </div>
         </div>
@@ -119,7 +119,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
           {ranked.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-2xl">
                 <Trophy size={48} className="mb-4 opacity-20" />
-                <p>Drag albums here to rank them</p>
+                <p>Drag & Drop les albums ici pour les classer</p>
              </div>
           ) : (
             ranked.map((album, idx) => (
@@ -165,14 +165,14 @@ export const RankingView: React.FC<RankingViewProps> = ({
              </div>
              <div>
                 <h2 className="text-xl font-bold text-white">Collection</h2>
-                <p className="text-xs text-zinc-500">Unranked albums from the group pool</p>
+                <p className="text-xs text-zinc-500">Albums non classés du groupe</p>
              </div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
            {pool.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-zinc-600">
-                <p>Search and add albums to the group pool</p>
+                <p>Recherchez et ajoutez des albums au pool du groupe</p>
              </div>
           ) : (
             pool.map((album, idx) => (

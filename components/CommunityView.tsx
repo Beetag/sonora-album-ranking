@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Group, CommunityUserRanking, RankedAlbum, YearlyRanking } from '../types';
-import { getCommunityRankings } from '../services/groupService';
+import { getGroupRankings } from '../services/groupService';
 import { Loader2, ArrowLeft, Users, Trophy, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { User } from 'firebase/auth';
 
@@ -75,10 +75,10 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
     if (selectedGroup && user) {
       setLoading(true);
       setError(null);
-      getCommunityRankings([selectedGroup.id])
+      getGroupRankings(selectedGroup.id)
         .then(setCommunityRankings)
         .catch(err => {
-          console.error("Error fetching community rankings:", err);
+          console.error("Error fetching group rankings:", err);
           setError(err.message || 'Could not load rankings. Check security rules and ensure you are connected.');
         })
         .finally(() => setLoading(false));
@@ -88,8 +88,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
   if (!selectedGroup) {
     return (
         <div className="max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold mb-2 text-center text-white">View Community Rankings</h2>
-            <p className="text-zinc-400 text-center mb-8">Select a group to see what everyone is ranking.</p>
+            <h2 className="text-2xl font-bold mb-2 text-center text-white">Voir les Classement de la Communauté</h2>
+            <p className="text-zinc-400 text-center mb-8">Sélectionnez un groupe pour voir le classement de chacun.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {groups.map(group => (
                     <button 
@@ -100,7 +100,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
                         <div className="w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center"><Users className="text-zinc-400" /></div>
                         <div>
                             <p className="font-bold text-white">{group.name}</p>
-                            <p className="text-sm text-zinc-400">{group.members.length} member(s)</p>
+                            <p className="text-sm text-zinc-400">{group.members.length} membre(s)</p>
                         </div>
                     </button>
                 ))}
@@ -123,8 +123,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
         <div className="mb-4">
           <button onClick={onClearGroup} className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
               <ArrowLeft size={16} />
-              <span className="hidden sm:inline">Back to Groups</span>
-              <span className="sm:hidden">Back</span>
+              <span className="hidden sm:inline">Revenir aux groupes</span>
+              <span className="sm:hidden">Retour</span>
           </button>
           <h2 className="text-2xl md:text-3xl font-bold text-white mt-2 truncate">{selectedGroup.name}</h2>
         </div>
@@ -141,7 +141,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              French
+              Français
             </button>
             <button
               onClick={() => setCategory('International')}
@@ -195,7 +195,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                French
+                Français
               </button>
               <button
                 onClick={() => setCategory('International')}
@@ -233,8 +233,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, groups, sele
       {!loading && !error && membersWithRankings.length === 0 && (
         <div className="text-center py-20 px-4">
             <Trophy className="mx-auto text-yellow-500/50" size={48} />
-            <h3 className="text-xl font-bold mt-4 text-white">It's Anyone's Game!</h3>
-            <p className="text-zinc-400 mt-2 max-w-md mx-auto">No one in this group has ranked albums for this category and year yet. Be the first to set the standard!</p>
+            <h3 className="text-xl font-bold mt-4 text-white">Tout est possible !</h3>
+            <p className="text-zinc-400 mt-2 max-w-md mx-auto">Personne dans ce groupe n'a encore classé les albums de cette catégorie et de cette année. Soyez le premier à établir la norme !</p>
         </div>
       )}
     </div>

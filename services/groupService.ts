@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import {
-  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup, writeBatch, deleteDoc
+  collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup, writeBatch, deleteDoc, QuerySnapshot, DocumentData
 } from 'firebase/firestore';
 import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
 import { User } from 'firebase/auth';
@@ -165,29 +165,46 @@ export const updateUserGroupRanking = async (groupId: string, user: User, rankin
   await setDoc(rankingDocRef, dataToMerge, { merge: true });
 };
 
-// --- Function for Community View ---
+// --- Functions for Community View ---
 
+// Helper to process a snapshot into the CommunityUserRanking format.
+const processRankingsSnapshot = (snapshot: QuerySnapshot<DocumentData>): CommunityUserRanking[] => {
+    const results: CommunityUserRanking[] = [];
+    snapshot.forEach(doc => {
+        const data = doc.data() as GroupRanking & { userInfo: { username: string, avatarUrl: string } };
+        if(data.userInfo){
+            results.push({
+                id: doc.id, // This is the userId
+                username: data.userInfo.username,
+                avatarUrl: data.userInfo.avatarUrl,
+                rankings: {
+                    rankingsByYear: data.rankingsByYear || {},
+                    updatedAt: data.updatedAt
+                }
+            });
+        }
+    });
+    return results;
+};
+
+// Fetches all rankings for a specific group. Uses a direct collection query.
+export const getGroupRankings = async (groupId: string): Promise<CommunityUserRanking[]> => {
+    const rankingsRef = collection(db, GROUPS_COLLECTION, groupId, 'rankings');
+    const snapshot = await getDocs(rankingsRef);
+    return processRankingsSnapshot(snapshot);
+};
+
+// Fetches rankings from all specified groups. Uses a collectionGroup query.
 export const getCommunityRankings = async (groupIds: string[]): Promise<CommunityUserRanking[]> => {
   if (groupIds.length === 0) return [];
 
-  const rankingsQuery = query(collectionGroup(db, 'rankings'), where('userInfo.groupId', 'in', groupIds));
-  const querySnapshot = await getDocs(rankingsQuery);
-  
-  const results: CommunityUserRanking[] = [];
-  querySnapshot.forEach(doc => {
-    const data = doc.data() as GroupRanking & { userInfo: { username: string, avatarUrl: string } };
-    if(data.userInfo){
-        results.push({
-            id: doc.id,
-            username: data.userInfo.username,
-            avatarUrl: data.userInfo.avatarUrl,
-            rankings: {
-                rankingsByYear: data.rankingsByYear || {},
-                updatedAt: data.updatedAt
-            }
-        });
-    }
-  });
+  // Create a separate query for each group the user is a member of.
+  const queries = groupIds.map(id => 
+    getDocs(query(collectionGroup(db, 'rankings'), where('userInfo.groupId', '==', id)))
+  );
 
-  return results;
+  const snapshots = await Promise.all(queries);
+  const allRankings = snapshots.flatMap(snapshot => processRankingsSnapshot(snapshot));
+
+  return allRankings;
 };

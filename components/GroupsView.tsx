@@ -152,10 +152,10 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                My Groups
+                Mes Groupes
                 {!user && <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full border border-yellow-500/30 flex items-center gap-1"><TestTube size={10} /> Test Mode</span>}
             </h2>
-            <p className="text-zinc-400">Collaborate with friends on rankings</p>
+            <p className="text-zinc-400">Comparez vos classement avec vos amis</p>
           </div>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
@@ -164,14 +164,14 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition-colors font-medium"
           >
             <LogIn size={18} />
-            Join Group
+            Rejoindre un groupe
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors font-medium shadow-lg shadow-indigo-900/20"
           >
             <Plus size={18} />
-            Create Group
+            Créer un groupe
           </button>
         </div>
       </div>
@@ -213,7 +213,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 <h3 className="text-xl font-bold text-white mb-2 truncate">{group.name}</h3>
                 <div className="flex items-center gap-2 text-zinc-400 text-sm mb-6">
                   <Users size={16} />
-                  <span>{group.members.length} member{group.members.length !== 1 ? 's' : ''}</span>
+                  <span>{group.members.length} membre{group.members.length !== 1 ? 's' : ''}</span>
                 </div>
               </div>
 
@@ -222,13 +222,13 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                   onClick={() => onSelectGroup(group)}
                   className="flex-grow py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors"
                 >
-                  Open Group
+                  Ouvrir Groupe
                 </button>
                 {user && group.createdBy === user.uid && (
                   <button 
                     onClick={() => setShowDeleteConfirm(group)}
                     className="p-2.5 bg-red-900/50 hover:bg-red-900/80 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition-colors"
-                    title="Delete Group"
+                    title="Supprimer le groupe"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -238,7 +238,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                      <button 
                         onClick={() => alert('Delete functionality is disabled in Test Mode.')}
                         className="p-2.5 bg-red-900/50 hover:bg-red-900/80 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition-colors"
-                        title="Delete Group"
+                        title="Supprimer le groupe"
                     >
                         <Trash2 size={18} />
                     </button>
@@ -260,17 +260,17 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
               <X size={24} />
             </button>
             
-            <h3 className="text-xl font-bold text-white mb-1">Create a Group</h3>
-            <p className="text-zinc-400 text-sm mb-6">Start a new collection to rank with friends.</p>
+            <h3 className="text-xl font-bold text-white mb-1">Créer un Groupe</h3>
+            <p className="text-zinc-400 text-sm mb-6">Créez une nouvelle collection pour vous comparer à vos amis.</p>
             
             <form onSubmit={handleCreate}>
               <div className="mb-6">
-                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Group Name</label>
+                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Nom du Groupe</label>
                 <input 
                   type="text" 
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="e.g. The Music Club"
+                  placeholder="ex. The Music Club"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   autoFocus
                 />
@@ -284,7 +284,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2"
               >
                 {actionLoading && <Loader2 className="animate-spin" size={18} />}
-                Create Group
+                Créer le groupe
               </button>
             </form>
           </div>
@@ -302,17 +302,17 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
               <X size={24} />
             </button>
             
-            <h3 className="text-xl font-bold text-white mb-1">Join a Group</h3>
-            <p className="text-zinc-400 text-sm mb-6">Enter the 6-character code shared by your friend.</p>
+            <h3 className="text-xl font-bold text-white mb-1">Rejoindre un Groupe</h3>
+            <p className="text-zinc-400 text-sm mb-6">Saisissez le code à 6 caractères communiqué par votre ami.</p>
             
             <form onSubmit={handleJoin}>
               <div className="mb-6">
-                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Group Code</label>
+                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Code du Groupe</label>
                 <input 
                   type="text" 
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="e.g. XY99WZ"
+                  placeholder="ex. XY99WZ"
                   maxLength={6}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 font-mono text-center tracking-widest text-lg uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   autoFocus
@@ -327,7 +327,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                 className="w-full py-3 bg-zinc-100 hover:bg-white disabled:opacity-50 disabled:hover:bg-zinc-100 text-black rounded-xl font-bold transition-colors flex justify-center items-center gap-2"
               >
                 {actionLoading && <Loader2 className="animate-spin" size={18} />}
-                Join Group
+                Rejoindre le Groupe
               </button>
             </form>
           </div>
@@ -341,11 +341,11 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
             <div className="flex justify-center items-center w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500/20 mx-auto mb-4">
                 <AlertTriangle size={32} className="text-red-500" />
             </div>
-            <h3 className="text-xl font-bold text-white text-center mb-2">Delete Group</h3>
+            <h3 className="text-xl font-bold text-white text-center mb-2">Supprimer le groupe</h3>
             <p className="text-zinc-400 text-sm mb-6 text-center">
-              Are you sure you want to delete the group "<span className="font-bold text-white">{showDeleteConfirm.name}</span>"?
+            Êtes-vous sûr de vouloir supprimer le groupe "<span className="font-bold text-white">{showDeleteConfirm.name}</span>"?
               <br /> 
-              This action is irreversible and will delete all associated data.
+              Cette action est irréversible et supprimera toutes les données associées.
             </p>
 
             {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
@@ -355,7 +355,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                     onClick={() => setShowDeleteConfirm(null)}
                     className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors"
                 >
-                    Cancel
+                    Annuler
                 </button>
                 <button 
                     onClick={handleDelete}
@@ -363,7 +363,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
                     className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:hover:bg-red-600 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2"
                 >
                     {actionLoading && <Loader2 className="animate-spin" size={18} />}
-                    Delete Forever
+                    Supprimer
                 </button>
             </div>
           </div>
