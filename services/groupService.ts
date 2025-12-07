@@ -2,7 +2,7 @@ import { db } from './firebase';
 import {
   collection, getDocs, query, where, doc, setDoc, getDoc, onSnapshot, updateDoc, collectionGroup, writeBatch, deleteDoc, QuerySnapshot, DocumentData
 } from 'firebase/firestore';
-import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking } from '../types';
+import { Group, GroupRanking, PoolAlbum, AlbumSubcollection, CommunityUserRanking, YearlyRanking, RankedAlbum } from '../types';
 import { User } from 'firebase/auth';
 
 const GROUPS_COLLECTION = 'groups';
@@ -38,7 +38,6 @@ export const createGroup = async (groupName: string, user: User): Promise<Group>
     }
   };
 
-  // Step 1: Create the group document.
   await setDoc(newGroupRef, {
     name: groupName,
     createdBy: user.uid,
@@ -48,11 +47,8 @@ export const createGroup = async (groupName: string, user: User): Promise<Group>
     memberInfo: initialMemberInfo,
   });
 
-  // Step 2: Confirm the write has propagated by reading the document back.
-  // This prevents a race condition where the second write is attempted before the security rules can see the user as a member.
   await getDoc(newGroupRef);
 
-  // Step 3: Create the initial ranking document for the creator.
   const rankingDocRef = doc(db, GROUPS_COLLECTION, newGroupRef.id, 'rankings', user.uid);
   await setDoc(rankingDocRef, createInitialRankingDoc(user, newGroupRef.id));
 
@@ -77,7 +73,6 @@ export const joinGroupByCode = async (code: string, user: User): Promise<void> =
       return;
   }
 
-  // --- Step 1: Update the Group Document to add the new member ---
   const newMemberInfo = {
     username: user.displayName || 'Anonymous',
     avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`,
@@ -88,10 +83,8 @@ export const joinGroupByCode = async (code: string, user: User): Promise<void> =
       [`memberInfo.${user.uid}`]: newMemberInfo
   });
 
-  // --- Step 2: Confirm the membership update has propagated by reading the doc back. ---
   await getDoc(groupDoc.ref);
 
-  // --- Step 3: Create the Initial Ranking Document for the new member ---
   const rankingDocRef = doc(db, GROUPS_COLLECTION, groupDoc.id, 'rankings', user.uid);
   await setDoc(rankingDocRef, createInitialRankingDoc(user, groupDoc.id));
 };
@@ -100,7 +93,6 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
   const batch = writeBatch(db);
   const groupRef = doc(db, GROUPS_COLLECTION, groupId);
 
-  // Delete all sub-collections (rankings, fr_pool, inter_pool)
   const subcollections = ['rankings', 'fr_pool', 'inter_pool'];
   for (const sub of subcollections) {
     const subRef = collection(db, GROUPS_COLLECTION, groupId, sub);
@@ -108,7 +100,6 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
   }
 
-  // Delete the main group document
   batch.delete(groupRef);
 
   await batch.commit();
@@ -139,6 +130,43 @@ export const addAlbumToPool = async (groupId: string, subcollection: AlbumSubcol
     return album.spotifyId;
 };
 
+export const deleteAlbumFromPool = async (groupId: string, subcollection: AlbumSubcollection, albumId: string): Promise<void> => {
+    const poolColName = getPoolCollectionName(subcollection);
+    const albumDocRef = doc(db, GROUPS_COLLECTION, groupId, poolColName, albumId);
+    await deleteDoc(albumDocRef);
+};
+
+// Checks if a given albumId is present in any user's ranking within a group.
+export const checkIfAlbumIsRanked = async (groupId: string, albumId: string): Promise<boolean> => {
+  const rankingsRef = collection(db, GROUPS_COLLECTION, groupId, 'rankings');
+  const rankingsSnapshot = await getDocs(rankingsRef);
+
+  if (rankingsSnapshot.empty) {
+    return false;
+  }
+
+  for (const userRankingDoc of rankingsSnapshot.docs) {
+    const userRankingData = userRankingDoc.data() as GroupRanking;
+    const { rankingsByYear } = userRankingData;
+
+    for (const year in rankingsByYear) {
+      const yearlyRanking: YearlyRanking = rankingsByYear[year];
+      
+      const frRanks: RankedAlbum[] = yearlyRanking.fr || [];
+      const interRanks: RankedAlbum[] = yearlyRanking.inter || [];
+
+      if (frRanks.some(rankedAlbum => rankedAlbum.albumId === albumId)) {
+        return true; // Found it
+      }
+      if (interRanks.some(rankedAlbum => rankedAlbum.albumId === albumId)) {
+        return true; // Found it
+      }
+    }
+  }
+
+  return false; // Did not find it
+};
+
 
 // --- Functions for Group-Specific User Rankings ---
 
@@ -167,7 +195,6 @@ export const updateUserGroupRanking = async (groupId: string, user: User, rankin
 
 // --- Functions for Community View ---
 
-// Helper to process a snapshot into the CommunityUserRanking format.
 const processRankingsSnapshot = (snapshot: QuerySnapshot<DocumentData>): CommunityUserRanking[] => {
     const results: CommunityUserRanking[] = [];
     snapshot.forEach(doc => {
@@ -187,18 +214,15 @@ const processRankingsSnapshot = (snapshot: QuerySnapshot<DocumentData>): Communi
     return results;
 };
 
-// Fetches all rankings for a specific group. Uses a direct collection query.
 export const getGroupRankings = async (groupId: string): Promise<CommunityUserRanking[]> => {
     const rankingsRef = collection(db, GROUPS_COLLECTION, groupId, 'rankings');
     const snapshot = await getDocs(rankingsRef);
     return processRankingsSnapshot(snapshot);
 };
 
-// Fetches rankings from all specified groups. Uses a collectionGroup query.
 export const getCommunityRankings = async (groupIds: string[]): Promise<CommunityUserRanking[]> => {
   if (groupIds.length === 0) return [];
 
-  // Create a separate query for each group the user is a member of.
   const queries = groupIds.map(id => 
     getDocs(query(collectionGroup(db, 'rankings'), where('userInfo.groupId', '==', id)))
   );

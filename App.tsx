@@ -4,13 +4,15 @@ import { RankingView } from './components/RankingView';
 import { CommunityView } from './components/CommunityView';
 import { GroupsView } from './components/GroupsView';
 import { Album, Group, GroupRanking, PoolAlbum, RankedAlbum, AlbumSubcollection, YearlyRanking } from './types';
-import { LayoutGrid, Users, Calendar, Music2, Loader2, Save, CheckCircle2, LogOut, LogIn, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, Users, Calendar, Music2, Loader2, Save, CheckCircle2, LogOut, LogIn, ArrowLeft, Trash2, X } from 'lucide-react';
 import { auth, signInWithGoogle, logout } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   getUserGroups,
   getGroupPool,
   addAlbumToPool,
+  deleteAlbumFromPool,
+  checkIfAlbumIsRanked,
   subscribeToGroupUserRanking,
   updateUserGroupRanking
 } from './services/groupService';
@@ -70,6 +72,9 @@ const App: React.FC = () => {
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [albumToDelete, setAlbumToDelete] = useState<PoolAlbum | null>(null);
 
   const handleViewChange = (newView: 'ranking' | 'community') => {
     setCommunitySelectedGroup(null);
@@ -145,17 +150,60 @@ const App: React.FC = () => {
         loading: `Adding "${album.title}"...`,
         success: (newAlbumId) => {
             setGroupPool(prevPool => [...prevPool, { ...poolAlbum, id: newAlbumId, addedAt: new Date(), addedBy: user.uid }]);
-            return `"${album.title}" added to pool!`
+            return `"${album.title}" ajouté à la collection.`
         },
         error: (err) => err.message || 'Failed to add album.',
     });
   }, [user, rankingSelectedGroup, subcollectionId]);
 
+  const initiateAlbumDeletion = useCallback(async (albumId: string) => {
+    if (!rankingSelectedGroup) return;
+
+    const album = groupPool.find(a => a.id === albumId);
+    if (!album) return;
+
+    try {
+      const isRanked = await checkIfAlbumIsRanked(rankingSelectedGroup.id, albumId);
+
+      if (isRanked) {
+        toast.error(`"${album.title}" a été classé par au moins un membre du groupe et ne peut pas être supprimé.`);
+        return;
+      }
+      
+      setAlbumToDelete(album);
+      setShowDeleteConfirm(true);
+
+    } catch (error) {
+      console.error("Error checking if album is ranked:", error);
+      toast.error('Could not verify album status. Please try again.');
+    }
+  }, [rankingSelectedGroup, groupPool]);
+
+  const confirmAlbumDeletion = async () => {
+    if (!albumToDelete || !rankingSelectedGroup) return;
+
+    const deletePromise = deleteAlbumFromPool(rankingSelectedGroup.id, subcollectionId, albumToDelete.id);
+
+    toast.promise(deletePromise, {
+      loading: `Deleting "${albumToDelete.title}"...`,
+      success: () => {
+        setGroupPool(prev => prev.filter(a => a.id !== albumToDelete.id));
+        setShowDeleteConfirm(false);
+        setAlbumToDelete(null);
+        return `"${albumToDelete.title}" deleted.`;
+      },
+      error: (err) => {
+        setShowDeleteConfirm(false);
+        setAlbumToDelete(null);
+        return err.message || 'Failed to delete album.';
+      },
+    });
+  };
+
   const handleSave = async () => {
     if (!user || !rankingSelectedGroup) return;
     setIsSaving(true);
 
-    // Construct the data to save, ensuring we only update the relevant year and category
     const dataToSave: Partial<GroupRanking> = {
       rankingsByYear: currentRanking.rankingsByYear,
     };
@@ -167,7 +215,7 @@ const App: React.FC = () => {
       success: () => {
         setHasUnsavedChanges(false);
         setIsSaving(false);
-        return 'Ranking saved successfully!';
+        return 'Classement enregistré.';
       },
       error: (err) => {
         setIsSaving(false);
@@ -248,6 +296,41 @@ const App: React.FC = () => {
           },
         }}
       />
+
+      {showDeleteConfirm && albumToDelete && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-md w-full shadow-2xl m-4">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 flex items-center justify-center bg-red-500/10 rounded-full mb-5 border-2 border-red-500/20">
+                <Trash2 size={32} className="text-red-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Supprimer l'album</h2>
+              <p className="text-zinc-400 mb-6">
+              Êtes-vous sûr de vouloir supprimer définitivement {' '}
+                <span className="font-bold text-white">{albumToDelete.title}</span> ?
+              </p>
+              <div className="flex justify-center gap-4 w-full">
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full px-4 py-3 rounded-lg text-md font-semibold bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={confirmAlbumDeletion}
+                  className="w-full px-4 py-3 rounded-lg text-md font-semibold bg-red-600 hover:bg-red-500 transition-colors"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setShowDeleteConfirm(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white">
+             <X size={24} />
+          </button>
+        </div>
+      )}
+
       <header className="sticky top-0 z-50 bg-[#121212]/80 backdrop-blur-xl border-b border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -469,6 +552,7 @@ const App: React.FC = () => {
                       }));
                       updateRankedList(newRanked);
                     }}
+                    onDeleteAlbum={initiateAlbumDeletion}
                   />
                 </div>
               </>

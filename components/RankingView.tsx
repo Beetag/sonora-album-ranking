@@ -8,6 +8,7 @@ interface RankingViewProps {
   pool: Album[];
   category: 'French' | 'International';
   onUpdateRanked: (items: Album[]) => void;
+  onDeleteAlbum: (albumId: string) => void;
 }
 
 export const RankingView: React.FC<RankingViewProps> = ({
@@ -15,6 +16,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
   pool,
   category,
   onUpdateRanked,
+  onDeleteAlbum,
 }) => {
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('albumId', id);
@@ -182,6 +184,7 @@ export const RankingView: React.FC<RankingViewProps> = ({
                 index={idx}
                 isRanked={false}
                 onPromote={promote}
+                onDelete={onDeleteAlbum}
                 onDragStart={handleDragStart}
               />
             ))

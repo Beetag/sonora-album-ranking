@@ -63,7 +63,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search ${category} albums from ${year}...`}
+          placeholder={`Rechercher des albums de ${year}...`}
           className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 backdrop-blur-md border border-zinc-700 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all shadow-lg"
         />
         

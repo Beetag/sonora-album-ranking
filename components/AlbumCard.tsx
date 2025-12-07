@@ -7,7 +7,7 @@ interface AlbumCardProps {
   index: number;
   rank?: number;
   isRanked: boolean;
-  onRemove?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onMove?: (id: string, direction: 'up' | 'down') => void;
   onPromote?: (id: string) => void;
   onDemote?: (id: string) => void;
@@ -19,7 +19,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   index,
   rank,
   isRanked,
-  onRemove,
+  onDelete,
   onMove,
   onPromote,
   onDemote,
@@ -95,9 +95,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
             >
               <Plus size={16} />
             </button>
-            {onRemove && (
+            {onDelete && (
                 <button 
-                onClick={() => onRemove(album.id)}
+                onClick={() => onDelete(album.id)}
                 className="p-1.5 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg ml-1"
                 >
                 <X size={16} />
