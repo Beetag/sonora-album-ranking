@@ -180,9 +180,9 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ user, onSelectGroup }) =
       {groups.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-zinc-800 rounded-3xl bg-zinc-900/30">
           <Users className="mx-auto text-zinc-600 mb-4" size={48} />
-          <h3 className="text-lg font-medium text-white">No Groups Yet</h3>
+          <h3 className="text-lg font-medium text-white">Aucun groupe</h3>
           <p className="text-zinc-500 mt-1 max-w-sm mx-auto">
-            Create a new group to invite friends, or join an existing one with a code.
+            Créez un nouveau groupe pour inviter des amis, ou rejoignez un groupe existant à l'aide d'un code.
           </p>
         </div>
       ) : (
