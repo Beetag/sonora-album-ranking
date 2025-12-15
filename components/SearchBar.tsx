@@ -15,6 +15,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
   const [results, setResults] = useState<Album[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [albumType, setAlbumType] = useState<'all' | 'album' | 'ep'>('all');
 
   // Debounce Logic for Auto-Search
   useEffect(() => {
@@ -56,6 +57,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
     setError(null);
   };
 
+  const filteredResults = results.filter(result => {
+    if (albumType === 'all') return true;
+    if (albumType === 'album') return result.type === 'album';
+    if (albumType === 'ep') return result.type === 'ep';
+    return false;
+  });
+
   return (
     <div className="relative w-full max-w-2xl mx-auto mb-8 z-20">
       <form onSubmit={handleManualSubmit} className="relative">
@@ -88,15 +96,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({ year, category, onAddAlbum
 
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-96 overflow-y-auto z-50">
+          <div className="p-2 flex justify-center space-x-2 bg-zinc-800/50 backdrop-blur-md">
+            <button onClick={() => setAlbumType('all')} className={`px-3 py-1 text-xs rounded-full ${albumType === 'all' ? 'bg-green-500 text-white' : 'bg-zinc-700 text-zinc-300'}`}>Tout</button>
+            <button onClick={() => setAlbumType('album')} className={`px-3 py-1 text-xs rounded-full ${albumType === 'album' ? 'bg-green-500 text-white' : 'bg-zinc-700 text-zinc-300'}`}>Albums</button>
+            <button onClick={() => setAlbumType('ep')} className={`px-3 py-1 text-xs rounded-full ${albumType === 'ep' ? 'bg-green-500 text-white' : 'bg-zinc-700 text-zinc-300'}`}>EPs</button>
+          </div>
           {error ? (
             <div className="p-4 text-center text-red-400">{error}</div>
-          ) : results.length > 0 ? (
+          ) : filteredResults.length > 0 ? (
             <div className="p-2 space-y-1">
               <div className="px-4 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider flex justify-between">
-                <span>Select an album</span>
-                <span>{results.length} found</span>
+                <span>Sélectionner un album</span>
+                <span>{filteredResults.length} trouvé(s)</span>
               </div>
-              {results.map((album) => (
+              {filteredResults.map((album) => (
                 <button
                   key={album.id}
                   onClick={() => {

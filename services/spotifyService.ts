@@ -66,8 +66,6 @@ export const searchAlbums = async (
   try {
     const token = await getAccessToken();
     
-    // A general search query works best. Spotify will search for the term in artist and album fields.
-    // The `year` filter refines the search.
     const query = `${term} year:${year}`;
     const url = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&type=album&limit=20`;
 
@@ -82,13 +80,14 @@ export const searchAlbums = async (
             spotifyToken = null;
             return searchAlbums(term, year, language); // Retry the search
         }
-        throw new Error(`Spotify API error: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`Spotify API error: ${errorData.error.message}`);
     }
 
     const data = await response.json();
     
     return data.albums.items
-      .filter((item: any) => item.album_type === 'album')
+      .filter((item: any) => item.album_type === 'album' || item.album_type === 'single')
       .map((item: any) => ({
         id: item.id,
         title: item.name,
@@ -96,6 +95,7 @@ export const searchAlbums = async (
         year: new Date(item.release_date).getFullYear(),
         language: language, 
         coverUrl: item.images[0]?.url || '', 
+        type: item.album_type === 'single' ? 'ep' : 'album',
       }));
 
   } catch (error) {

@@ -7,6 +7,7 @@ export interface Album {
   year: number;
   language: 'French' | 'International';
   coverUrl: string;
+  type: 'album' | 'ep';
 }
 
 // New type for an album in a group's pool subcollection
@@ -50,27 +51,6 @@ export interface GroupRanking {
     rankingsByYear: { [year: number]: YearlyRanking };
     updatedAt: any; // Firestore Timestamp
 }
-
-/*
-  DEPRECATED TYPES from old data structure.
-*/
-/*
-export interface UserRanking {
-  year: number;
-  french: {
-    ranked: Album[];
-    pool: Album[];
-  };
-  international: {
-    ranked: Album[];
-    pool: Album[];
-  };
-}
-
-export interface GroupPool {
-  albums: Album[];
-}
-*/
 
 export interface CommunityUserRanking {
   id: string;
